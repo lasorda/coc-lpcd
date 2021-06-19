@@ -8,7 +8,7 @@ var sscanf = require('sscanf');
 const cocLpcConfig = workspace.getConfiguration('coc-lpc');
 const workspaceStr = cocLpcConfig.get<string>("workspace", "newtxii");
 const complieCommand = cocLpcConfig.get<string>("complie", "lpc_compile");
-const defaultInclude = cocLpcConfig.get<Array<string>>('efunc', ["/etc/vscode_efun_define/efun_define.h", "/sys/object/simul_efun.c"]);
+const efuncObjects = cocLpcConfig.get<Array<string>>('efunc', ["/etc/efun_define.c", "/sys/object/simul_efun.c"]);
 
 let logger: Logger;
 
@@ -30,11 +30,13 @@ export function getProjectFolder(): string {
     return curPath.slice(0, pos + `${workspaceStr}/`.length);
 };
 
-function complie(filename: string) {
+function complie(filename: string): Boolean {
     try {
         execSync(`cd ${getProjectFolder()} && ${complieCommand} ${filename}`, {shell: "/bin/bash", stdio: 'ignore'});
+        return true;
     } catch (error) {
         window.showMessage(`complie ${filename} error`);
+        return false;
     }
 }
 
@@ -73,37 +75,45 @@ interface Symbol {
     name: string,
     line: number,
     // detail?: string,
-    args?: Array<string>,
+    args?: string[],
 }
 
 interface FileSymbol {
     lineno: number;
-    defined: Array<Symbol>,
-    include: Array<Symbol>,
-    variable: Array<Symbol>,
-    func: Array<Symbol>,
-    childFileSymbol: Map<string, FileSymbol>,
+    defined: Symbol[],
+    include: Symbol[],
+    variable: Symbol[],
+    func: Symbol[],
+    childFileSymbol: {[key: string]: FileSymbol},
 }
 
 function parse(filename: string, symbolInfo: string) {
     let lineInfo = symbolInfo.split('\n')
-    let fileSymbol: FileSymbol = {defined: [], include: [], variable: [], func: [], childFileSymbol: new Map(), lineno: 0}
-    let localArgs: Array<string> = []
+    let fileSymbol: FileSymbol = {defined: [], include: [], variable: [], func: [], childFileSymbol: {}, lineno: 0}
+    let localArgs: string[] = []
+    let currentLine = 0;
+    let hasIncluded = new Set();
 
     lineInfo.forEach(line => {
         let lineSymbol: LineSymbol = sscanf(line, "%d %s %d %S", 'op', 'filename', 'lineno', 'detail');
         let targetSymbol: FileSymbol | undefined = fileSymbol;
 
+        if (lineSymbol.filename == filename) currentLine = lineSymbol.lineno;
+
         if (lineSymbol.filename != filename) {
-            if (!fileSymbol.childFileSymbol.has(lineSymbol.filename)) {
-                fileSymbol.childFileSymbol.set(lineSymbol.filename, {defined: [], include: [], variable: [], func: [], childFileSymbol: new Map(), lineno: lineSymbol.lineno});
+            if (!fileSymbol.childFileSymbol[lineSymbol.filename]) {
+
+                fileSymbol.childFileSymbol[lineSymbol.filename] = {defined: [], include: [], variable: [], func: [], childFileSymbol: {}, lineno: lineSymbol.lineno};
             }
-            targetSymbol = fileSymbol.childFileSymbol.get(lineSymbol.filename);
+            targetSymbol = fileSymbol.childFileSymbol[lineSymbol.filename];
         }
         if (targetSymbol) {
             switch (lineSymbol.op) {
                 case OP.INC:
-                    targetSymbol.include.push({name: lineSymbol.filename, line: lineSymbol.lineno});
+                    if (!hasIncluded.has(lineSymbol.filename)) {
+                        fileSymbol.include.push({name: lineSymbol.filename, line: currentLine});
+                        hasIncluded.add(lineSymbol.filename)
+                    }
                     break;
                 case OP.DEFINE:
                     let hasArgs = 0;
@@ -158,18 +168,103 @@ function parse(filename: string, symbolInfo: string) {
             }
         }
     });
+    return fileSymbol;
+}
 
-    debug(JSON.stringify(fileSymbol, null, 4))
-    fileSymbol.childFileSymbol.forEach((value: FileSymbol, key: string, m: Map<string, FileSymbol>) => {
-        debug(JSON.stringify(value, null, 4))
+function generateFileSymbol(filename: string) {
+    let fileSymbol: FileSymbol = {defined: [], include: [], variable: [], func: [], childFileSymbol: {}, lineno: 0}
+    if (!complie(filename)) {
+        return fileSymbol;
+    }
+    let res = loadSymbol(filename);
+    fileSymbol = parse(filename, res);
+    return fileSymbol;
+}
+
+function getDefineFunction(filename: string, line: number): Symbol[] {
+    let ret: Symbol[] = []
+    let fileSymbol = generateFileSymbol(filename);
+
+    fileSymbol.func.forEach(func => {
+        if (line < 0 || func.line <= line) {
+            ret.push(func);
+        }
     });
+    return ret;
+}
+
+/**
+ * include efun and simul_efun
+ */
+function getVisibleFunction(filename: string, line: number): Symbol[] {
+    let res = getDefineFunction(filename, line);
+    efuncObjects.forEach(efuncFile => {
+        res.push(...getDefineFunction(efuncFile, -1))
+    });
+    return res;
+}
+
+function getMacroDefine(filename: string, line: number): Symbol[] {
+    let ret: Symbol[] = []
+    let fileSymbol = generateFileSymbol(filename);
+
+    fileSymbol.defined.forEach(func => {
+        if (line < 0 || func.line <= line) {
+            ret.push(func);
+        }
+    });
+    return ret;
+}
+
+function getGlobalVariable(filename: string, line: number): Symbol[] {
+    let ret: Symbol[] = []
+    let fileSymbol = generateFileSymbol(filename);
+
+    fileSymbol.variable.forEach(func => {
+        if (line < 0 || func.line <= line) {
+            ret.push(func);
+        }
+    });
+    return ret;
+
+}
+
+function getLocalVariable(filename: string, lineAt: number): Symbol[] {
+    let symbolInfo = loadSymbol(filename);
+    let lineInfo = symbolInfo.split('\n')
+    let localArgs: Symbol[] = []
+
+    for (let index = 0; index < lineInfo.length; index++) {
+        let line = lineInfo[index];
+        let lineSymbol: LineSymbol = sscanf(line, "%d %s %d %S", 'op', 'filename', 'lineno', 'detail');
+
+        if (lineSymbol.filename == filename && lineSymbol.lineno > lineAt) {
+            break
+        }
+
+        switch (lineSymbol.op) {
+            case OP.NEW:
+                localArgs.push({name: lineSymbol.detail, line: lineSymbol.lineno});
+                break
+            case OP.POP:
+                let n = parseInt(lineSymbol.detail)
+                while (localArgs.length > 0 && n > 0) {
+                    localArgs.pop();
+                    n--;
+                }
+                break
+            case OP.FREE:
+                localArgs = []
+                break
+            default:
+        }
+    }
+    return localArgs;
 }
 
 function test() {
-    let filename = "huodong/mall/main.c";
-    complie(filename);
-    let res = loadSymbol(filename);
-    parse(filename, res);
+    let res = generateFileSymbol("huodong/mall/main.c");
+    debug(res);
 }
 
 export function init(context: ExtensionContext) {
