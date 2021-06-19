@@ -1,5 +1,5 @@
-import {workspace, Logger, ExtensionContext, window, DocumentSymbol} from 'coc.nvim';
-import {execSync} from 'child_process';
+import { workspace, Logger, ExtensionContext, window, languages, TextDocument, Position, CancellationToken, CompletionContext, CompletionItem, CompletionItemKind, StreamInfo, InsertTextFormat } from 'coc.nvim';
+import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -12,27 +12,30 @@ const efuncObjects = cocLpcConfig.get<Array<string>>('efunc', ["/etc/efun_define
 
 let logger: Logger;
 
-export function debug(message: any, ...args: any) {
+function debug(message: any, ...args: any) {
     logger.info(message, ...args)
 }
 
-export function getFileRelativePath(absPath: string): string {
-    if (workspaceStr == "") getProjectFolder();
+function getFileRelativePath(absPath: string): string {
     return absPath.slice(absPath.indexOf(`${workspaceStr}/`) + `${workspaceStr}/`.length, absPath.length);
 }
 
-export function getProjectFolder(): string {
+var projectFolder: string = "";
+var inc: string = "";
+
+function InitProjectFolder() {
     let curPath = workspace.cwd;
-    if (curPath.length <= 0) return "";
-    let pos = -1;
-    pos = curPath.lastIndexOf(workspaceStr);
-    if (pos < 0) return "";
-    return curPath.slice(0, pos + `${workspaceStr}/`.length);
+    let pos = curPath.lastIndexOf(workspaceStr);
+
+    if (pos >= 0) {
+        projectFolder = curPath.slice(0, pos + `${workspaceStr}/`.length);
+        inc = path.resolve(projectFolder, cocLpcConfig.get<string>('include', "inc"));
+    }
 };
 
 function complie(filename: string): Boolean {
     try {
-        execSync(`cd ${getProjectFolder()} && ${complieCommand} ${filename}`, {shell: "/bin/bash", stdio: 'ignore'});
+        execSync(`cd ${projectFolder} && ${complieCommand} ${filename}`, { shell: "/bin/bash", stdio: 'ignore' });
         return true;
     } catch (error) {
         window.showMessage(`complie ${filename} error`);
@@ -47,7 +50,7 @@ function loadSymbol(filename: string) {
         filename = filename.substring(1);
     }
     filename = filename.replace(/\//g, "#");
-    let absFilename = path.resolve(getProjectFolder(), symbolDir, filename);
+    let absFilename = path.resolve(projectFolder, symbolDir, filename);
     if (!fs.existsSync(absFilename)) {
         return "";
     }
@@ -78,6 +81,7 @@ interface Symbol {
     // detail?: string,
     args?: string[],
     op?: LineSymbol[],
+    detail?: string,
 }
 
 interface FileSymbol {
@@ -86,12 +90,12 @@ interface FileSymbol {
     include: Symbol[],
     variable: Symbol[],
     func: Symbol[],
-    childFileSymbol: {[key: string]: FileSymbol},
+    childFileSymbol: { [key: string]: FileSymbol },
 }
 
 function parse(filename: string, symbolInfo: string) {
     let lineInfo = symbolInfo.split('\n')
-    let fileSymbol: FileSymbol = {defined: [], include: [], variable: [], func: [], childFileSymbol: {}, lineno: 0}
+    let fileSymbol: FileSymbol = { defined: [], include: [], variable: [], func: [], childFileSymbol: {}, lineno: 0 }
     let localArgs: string[] = []
     let currentLine = 0;
     let hasIncluded = new Set();
@@ -105,8 +109,7 @@ function parse(filename: string, symbolInfo: string) {
 
         if (lineSymbol.filename != filename) {
             if (!fileSymbol.childFileSymbol[lineSymbol.filename]) {
-
-                fileSymbol.childFileSymbol[lineSymbol.filename] = {defined: [], include: [], variable: [], func: [], childFileSymbol: {}, lineno: lineSymbol.lineno};
+                fileSymbol.childFileSymbol[lineSymbol.filename] = { defined: [], include: [], variable: [], func: [], childFileSymbol: {}, lineno: lineSymbol.lineno };
             }
             targetSymbol = fileSymbol.childFileSymbol[lineSymbol.filename];
         }
@@ -114,7 +117,7 @@ function parse(filename: string, symbolInfo: string) {
             switch (lineSymbol.op) {
                 case OP.INC:
                     if (!hasIncluded.has(lineSymbol.filename)) {
-                        fileSymbol.include.push({name: lineSymbol.filename, line: currentLine, filename: lineSymbol.filename});
+                        fileSymbol.include.push({ name: lineSymbol.filename, line: currentLine, filename: lineSymbol.filename });
                         hasIncluded.add(lineSymbol.filename)
                     }
                     break;
@@ -137,22 +140,38 @@ function parse(filename: string, symbolInfo: string) {
                         args = args.filter(function (value: string, index: number, array: string[]) {
                             return value.length > 0;
                         })
-                        targetSymbol.defined.push({name: define.substring(0, hasArgs), line: lineSymbol.lineno, args: args, filename: lineSymbol.filename})
+                        targetSymbol.defined.push({
+                            name: define.substring(0, hasArgs),
+                            line: lineSymbol.lineno,
+                            args: args,
+                            filename: lineSymbol.filename,
+                            detail: lineSymbol.detail.substring(right + 1, lineSymbol.detail.length).trim()
+                        })
                     }
                     else {
                         if (spacePos < 0) {
-                            targetSymbol.defined.push({name: define, line: lineSymbol.lineno, filename: lineSymbol.filename})
+                            targetSymbol.defined.push({
+                                name: define,
+                                line: lineSymbol.lineno,
+                                filename: lineSymbol.filename,
+                                detail: undefined,
+                            })
                         }
                         else {
-                            targetSymbol.defined.push({name: define.substring(0, spacePos), line: lineSymbol.lineno, filename: lineSymbol.filename})
+                            targetSymbol.defined.push({
+                                name: define.substring(0, spacePos),
+                                line: lineSymbol.lineno,
+                                filename: lineSymbol.filename,
+                                detail: lineSymbol.detail.substring(spacePos, lineSymbol.detail.length).trim()
+                            })
                         }
                     }
                     break
                 case OP.VAR:
-                    targetSymbol.variable.push({name: lineSymbol.detail, line: lineSymbol.lineno, filename: lineSymbol.filename});
+                    targetSymbol.variable.push({ name: lineSymbol.detail, line: lineSymbol.lineno, filename: lineSymbol.filename });
                     break
                 case OP.FUNC:
-                    targetSymbol.func.push({name: lineSymbol.detail, line: lineSymbol.lineno, args: [...localArgs], op: [], filename: lineSymbol.filename});
+                    targetSymbol.func.push({ name: lineSymbol.detail, line: lineSymbol.lineno, args: [...localArgs], op: [], filename: lineSymbol.filename });
                     lastFunction = targetSymbol.func[targetSymbol.func.length - 1]
                     break
                 case OP.NEW:
@@ -184,11 +203,11 @@ function parse(filename: string, symbolInfo: string) {
     return fileSymbol;
 }
 
-var fileSymbolCache: {[key: string]: FileSymbol} = {}
-var fileSymbolCacheTime: {[key: string]: number} = {}
+var fileSymbolCache: { [key: string]: FileSymbol } = {}
+var fileSymbolCacheTime: { [key: string]: number } = {}
 
 function generateFileSymbol(filename: string): FileSymbol {
-    let fileSymbol: FileSymbol = {defined: [], include: [], variable: [], func: [], childFileSymbol: {}, lineno: 0}
+    let fileSymbol: FileSymbol = { defined: [], include: [], variable: [], func: [], childFileSymbol: {}, lineno: 0 }
     if (filename in fileSymbolCacheTime && (Date.now() / 1000 - fileSymbolCacheTime[filename] < 2)) {
         return fileSymbolCache[filename];
     }
@@ -207,7 +226,7 @@ function generateFileSymbol(filename: string): FileSymbol {
 /**
  * for object call function completion
  */
-function getDefineFunction(filename: string, line: number): Symbol[] {
+function getDefineFunction(filename: string, line: number, includeChild: Boolean): Symbol[] {
     let ret: Symbol[] = []
     let fileSymbol = generateFileSymbol(filename);
 
@@ -217,12 +236,15 @@ function getDefineFunction(filename: string, line: number): Symbol[] {
         }
     });
 
-    for (var file in fileSymbol.childFileSymbol) {
-        fileSymbol = fileSymbol.childFileSymbol[file]
+    if (includeChild) {
+        for (var file in fileSymbol.childFileSymbol) {
+            fileSymbol = fileSymbol.childFileSymbol[file]
 
-        if (line < 0 || fileSymbol.lineno <= line) {
-            ret.push(...fileSymbol.func);
+            if (line < 0 || fileSymbol.lineno <= line) {
+                ret.push(...fileSymbol.func);
+            }
         }
+
     }
     return ret;
 }
@@ -231,14 +253,14 @@ function getDefineFunction(filename: string, line: number): Symbol[] {
  * include efun and simul_efun, for completion in this file
  */
 function getVisibleFunction(filename: string, line: number): Symbol[] {
-    let res = getDefineFunction(filename, line);
+    let res = getDefineFunction(filename, line, true);
     efuncObjects.forEach(efuncFile => {
-        res.push(...getDefineFunction(efuncFile, -1))
+        res.push(...getDefineFunction(efuncFile, -1, true))
     });
     return res;
 }
 
-function getMacroDefine(filename: string, line: number): Symbol[] {
+function getMacroDefine(filename: string, line: number, includeChild: Boolean): Symbol[] {
     let ret: Symbol[] = []
     let fileSymbol = generateFileSymbol(filename);
 
@@ -248,18 +270,21 @@ function getMacroDefine(filename: string, line: number): Symbol[] {
         }
     });
 
-    for (var file in fileSymbol.childFileSymbol) {
-        fileSymbol = fileSymbol.childFileSymbol[file]
+    if (includeChild) {
+        for (var file in fileSymbol.childFileSymbol) {
+            fileSymbol = fileSymbol.childFileSymbol[file]
 
-        if (line < 0 || fileSymbol.lineno <= line) {
-            ret.push(...fileSymbol.defined);
+            if (line < 0 || fileSymbol.lineno <= line) {
+                ret.push(...fileSymbol.defined);
+            }
         }
-    }
 
+
+    }
     return ret;
 }
 
-function getGlobalVariable(filename: string, line: number): Symbol[] {
+function getGlobalVariable(filename: string, line: number, includeChild: Boolean): Symbol[] {
     let ret: Symbol[] = []
     let fileSymbol = generateFileSymbol(filename);
 
@@ -269,16 +294,16 @@ function getGlobalVariable(filename: string, line: number): Symbol[] {
         }
     });
 
-    for (var file in fileSymbol.childFileSymbol) {
-        fileSymbol = fileSymbol.childFileSymbol[file]
+    if (includeChild) {
+        for (var file in fileSymbol.childFileSymbol) {
+            fileSymbol = fileSymbol.childFileSymbol[file]
 
-        if (line < 0 || fileSymbol.lineno <= line) {
-            ret.push(...fileSymbol.variable);
+            if (line < 0 || fileSymbol.lineno <= line) {
+                ret.push(...fileSymbol.variable);
+            }
         }
     }
-
     return ret;
-
 }
 
 function getLocalVariable(filename: string, lineAt: number): Symbol[] {
@@ -298,7 +323,7 @@ function getLocalVariable(filename: string, lineAt: number): Symbol[] {
     if (lastFunction && lastFunction.args && lastFunction.op) {
         for (let index = 0; index < lastFunction.args.length; index++) {
             const arg = lastFunction.args[index];
-            localArgs.push({name: arg, line: lastFunction.line, filename: filename})
+            localArgs.push({ name: arg, line: lastFunction.line, filename: filename })
         }
         for (let index = 0; index < lastFunction.op.length; index++) {
             const lineSymbol = lastFunction.op[index];
@@ -307,7 +332,7 @@ function getLocalVariable(filename: string, lineAt: number): Symbol[] {
 
             switch (lineSymbol.op) {
                 case OP.NEW:
-                    localArgs.push({name: lineSymbol.detail, line: lineSymbol.lineno, filename: lineSymbol.filename})
+                    localArgs.push({ name: lineSymbol.detail, line: lineSymbol.lineno, filename: lineSymbol.filename })
                     break
                 case OP.POP:
                     let n = parseInt(lineSymbol.detail)
@@ -331,7 +356,124 @@ function test() {
     debug(res);
 }
 
+function getLine(document: TextDocument, line: number): string {
+    return document.getText({ start: { line: line - 1, character: 100000 }, end: { line: line, character: 100000 } });
+}
+
+function provideCompletionItems(document: TextDocument, position: Position, token: CancellationToken, context?: CompletionContext): CompletionItem[] {
+    const line = getLine(document, position.line)
+    const lineText = line.substring(0, position.character);
+    let reg: RegExp;
+
+    // #include <
+    reg = /#include\s+?(<)\w*?$/;
+    if (reg.test(lineText)) {
+        let result = fileDisplay(inc);
+        return result;
+    }
+
+    // #include "
+    reg = /#include\s+?(\")\w*?$/;
+    if (reg.test(lineText)) {
+        let result = fileDisplay(inc);
+        result.push(...fileDisplay(path.dirname(document.uri)));
+        return result;
+    }
+
+    // "cmd/"
+    reg = /(\")([\w\/]*)$/;
+    if (reg.test(lineText)) {
+        let exec_result = reg.exec(lineText);
+        if (exec_result != null) {
+            return fileDisplay(path.resolve(projectFolder, exec_result[2]));
+        }
+        return []
+    }
+
+    reg = /([\w\/\"\.]+|this_object\(\))->/;
+    if (reg.test(lineText)) {
+        let exec_result = reg.exec(lineText);
+        let file = "";
+        if (exec_result == null) return []
+        if (exec_result[1] == 'this_object()') {
+            file = `"${document.uri.replace(projectFolder, "")}"`;
+        } else {
+            file = exec_result[1];
+        }
+        if (!file.startsWith("\"")) {
+            let define = getMacroDefine(getFileRelativePath(document.uri), position.line, true);
+            for (let index = 0; index < define.length; index++) {
+                const def = define[index];
+                if (def.name == exec_result[1] && def.detail) {
+                    file = def.detail;
+                }
+            }
+        }
+        file = prettyFilename(file.substring(1, file.length - 1));
+        let res: CompletionItem[] = []
+        let allFunction = getDefineFunction(file, -1, true);
+        for (let index = 0; index < allFunction.length; index++) {
+            const func = allFunction[index];
+            res.push({
+                label: func.name,
+                kind: CompletionItemKind.Function,
+                insertText: func.name + makeSnippetPlaceHolderStr(func.args || []),
+                insertTextFormat: InsertTextFormat.Snippet,
+            })
+        }
+        return res;
+        //  file = getDefineValue(readFromFileSync(document.uri), exec_result[1], dirname);
+        // if (file.substring(0, 1) == "/") file = "." + file;
+        // return getFileFunctions(projectPath, file);
+    }
+
+    return [];
+}
+
+function makeSnippetPlaceHolderStr(args: string[]): string {
+    let res = "";
+    for (let index = 0; index < args.length; index++) {
+        const arg = args[index];
+        if (index > 0) {
+            res += ", ";
+        }
+        res += "${" + (index + 1) + ":" + arg.trim() + "}"
+    }
+    return "(" + res + ")";
+}
+
+function prettyFilename(filename: string): string {
+    return path.resolve(...filename.replace(/\//, ' ').split(' '));
+}
+
+function fileDisplay(dirPath: string): CompletionItem[] {
+    let output: CompletionItem[] = [];
+
+    let files = fs.readdirSync(dirPath);
+
+    for (let i = 0; i < files.length; ++i) {
+        let filedir = path.join(dirPath, files[i]);
+        let stats = fs.statSync(filedir);
+
+        if (stats == null) return [];
+        let isFile = stats.isFile();
+        let isDir = stats.isDirectory();
+        if (isFile && (filedir.search('\\.c') != -1 || filedir.search('\\.h') != -1)) {
+            filedir = filedir.replace(dirPath, "").replace(/\\/g, '/').substr(1)
+            output.push({ label: filedir, kind: CompletionItemKind.File, insertText: filedir });
+        }
+        else if (isDir) {
+            filedir = filedir.replace(dirPath, "").replace(/\\/g, '/').substr(1) + "/";
+            if (filedir.substring(0, 1) == '.') continue;
+            output.push({ label: filedir, kind: CompletionItemKind.Folder, insertText: filedir.replace('/', ''), });
+        }
+    }
+    return output;
+};
+
 export function init(context: ExtensionContext) {
     logger = context.logger;
+    InitProjectFolder();
+    context.subscriptions.push(languages.registerCompletionItemProvider('coc-lpcd', 'LPC', 'lpc', { provideCompletionItems }, ['/', '>', '<']));
     test();
 }

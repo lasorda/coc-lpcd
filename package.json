@@ -68,6 +68,11 @@
             "/sys/object/simul_efun.c"
           ],
           "description": "efun_define for engine defined function, simul_efun for global function"
+        },
+        "coc-lpc.include": {
+          "type": "string",
+          "default": "inc",
+          "description": "lpc default include path"
         }
       }
     },
