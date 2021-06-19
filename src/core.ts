@@ -76,6 +76,7 @@ interface Symbol {
     line: number,
     // detail?: string,
     args?: string[],
+    op?: LineSymbol[],
 }
 
 interface FileSymbol {
@@ -93,6 +94,7 @@ function parse(filename: string, symbolInfo: string) {
     let localArgs: string[] = []
     let currentLine = 0;
     let hasIncluded = new Set();
+    let lastFunction: Symbol | null = null;
 
     lineInfo.forEach(line => {
         let lineSymbol: LineSymbol = sscanf(line, "%d %s %d %S", 'op', 'filename', 'lineno', 'detail');
@@ -149,10 +151,14 @@ function parse(filename: string, symbolInfo: string) {
                     targetSymbol.variable.push({name: lineSymbol.detail, line: lineSymbol.lineno});
                     break
                 case OP.FUNC:
-                    targetSymbol.func.push({name: lineSymbol.detail, line: lineSymbol.lineno, args: [...localArgs]});
+                    targetSymbol.func.push({name: lineSymbol.detail, line: lineSymbol.lineno, args: [...localArgs], op: []});
+                    lastFunction = targetSymbol.func[targetSymbol.func.length - 1]
                     break
                 case OP.NEW:
                     localArgs.push(lineSymbol.detail);
+                    if (lastFunction && lastFunction.op) {
+                        lastFunction.op.push(lineSymbol)
+                    }
                     break
                 case OP.POP:
                     let n = parseInt(lineSymbol.detail)
@@ -160,9 +166,15 @@ function parse(filename: string, symbolInfo: string) {
                         localArgs.pop();
                         n--;
                     }
+                    if (lastFunction && lastFunction.op) {
+                        lastFunction.op.push(lineSymbol)
+                    }
                     break
                 case OP.FREE:
                     localArgs = []
+                    if (lastFunction && lastFunction.op) {
+                        lastFunction.op.push(lineSymbol)
+                    }
                     break
                 default:
             }
@@ -171,13 +183,23 @@ function parse(filename: string, symbolInfo: string) {
     return fileSymbol;
 }
 
-function generateFileSymbol(filename: string) {
+var fileSymbolCache: {[key: string]: FileSymbol} = {}
+var fileSymbolCacheTime: {[key: string]: number} = {}
+
+function generateFileSymbol(filename: string): FileSymbol {
     let fileSymbol: FileSymbol = {defined: [], include: [], variable: [], func: [], childFileSymbol: {}, lineno: 0}
+    if (filename in fileSymbolCacheTime && (Date.now() / 1000 - fileSymbolCacheTime[filename] < 2)) {
+        return fileSymbolCache[filename];
+    }
+
     if (!complie(filename)) {
+        if (filename in fileSymbolCache) return fileSymbolCache[filename];
         return fileSymbol;
     }
     let res = loadSymbol(filename);
     fileSymbol = parse(filename, res);
+    fileSymbolCache[filename] = fileSymbol;
+    fileSymbolCacheTime[filename] = Date.now() / 1000;
     return fileSymbol;
 }
 
@@ -190,6 +212,14 @@ function getDefineFunction(filename: string, line: number): Symbol[] {
             ret.push(func);
         }
     });
+
+    for (var file in fileSymbol.childFileSymbol) {
+        fileSymbol = fileSymbol.childFileSymbol[file]
+
+        if (line < 0 || fileSymbol.lineno <= line) {
+            ret.push(...fileSymbol.func);
+        }
+    }
     return ret;
 }
 
@@ -230,33 +260,45 @@ function getGlobalVariable(filename: string, line: number): Symbol[] {
 }
 
 function getLocalVariable(filename: string, lineAt: number): Symbol[] {
-    let symbolInfo = loadSymbol(filename);
-    let lineInfo = symbolInfo.split('\n')
     let localArgs: Symbol[] = []
+    let fileSymbol = generateFileSymbol(filename);
+    let lastFunction: Symbol | null = null
 
-    for (let index = 0; index < lineInfo.length; index++) {
-        let line = lineInfo[index];
-        let lineSymbol: LineSymbol = sscanf(line, "%d %s %d %S", 'op', 'filename', 'lineno', 'detail');
-
-        if (lineSymbol.filename == filename && lineSymbol.lineno > lineAt) {
+    for (let index = 0; index < fileSymbol.func.length; index++) {
+        const func = fileSymbol.func[index];
+        if (func.line <= lineAt) {
+            lastFunction = func;
+        }
+        else {
             break
         }
+    }
+    if (lastFunction && lastFunction.args && lastFunction.op) {
+        for (let index = 0; index < lastFunction.args.length; index++) {
+            const arg = lastFunction.args[index];
+            localArgs.push({name: arg, line: lastFunction.line})
+        }
+        for (let index = 0; index < lastFunction.op.length; index++) {
+            const lineSymbol = lastFunction.op[index];
 
-        switch (lineSymbol.op) {
-            case OP.NEW:
-                localArgs.push({name: lineSymbol.detail, line: lineSymbol.lineno});
-                break
-            case OP.POP:
-                let n = parseInt(lineSymbol.detail)
-                while (localArgs.length > 0 && n > 0) {
-                    localArgs.pop();
-                    n--;
-                }
-                break
-            case OP.FREE:
-                localArgs = []
-                break
-            default:
+            if (lineSymbol.lineno > lineAt) break;
+
+            switch (lineSymbol.op) {
+                case OP.NEW:
+                    localArgs.push({name: lineSymbol.detail, line: lineSymbol.lineno})
+                    break
+                case OP.POP:
+                    let n = parseInt(lineSymbol.detail)
+                    while (localArgs.length > 0 && n > 0) {
+                        localArgs.pop();
+                        n--;
+                    }
+                    break
+                case OP.FREE:
+                    localArgs = []
+                    break
+                default:
+            }
         }
     }
     return localArgs;
