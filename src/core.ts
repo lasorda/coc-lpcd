@@ -77,28 +77,26 @@ interface Symbol {
 }
 
 interface FileSymbol {
-
+    lineno: number;
     defined: Array<Symbol>,
     include: Array<Symbol>,
     variable: Array<Symbol>,
     func: Array<Symbol>,
-
     childFileSymbol: Map<string, FileSymbol>,
 }
 
 function parse(filename: string, symbolInfo: string) {
     let lineInfo = symbolInfo.split('\n')
-    let fileSymbol: FileSymbol = {defined: [], include: [], variable: [], func: [], childFileSymbol: new Map()}
-
+    let fileSymbol: FileSymbol = {defined: [], include: [], variable: [], func: [], childFileSymbol: new Map(), lineno: 0}
     let localArgs: Array<string> = []
 
     lineInfo.forEach(line => {
-        let lineSymbol: LineSymbol = sscanf(line, "%d %s %d %s", 'op', 'filename', 'lineno', 'detail');
+        let lineSymbol: LineSymbol = sscanf(line, "%d %s %d %S", 'op', 'filename', 'lineno', 'detail');
         let targetSymbol: FileSymbol | undefined = fileSymbol;
 
         if (lineSymbol.filename != filename) {
             if (!fileSymbol.childFileSymbol.has(lineSymbol.filename)) {
-                fileSymbol.childFileSymbol.set(lineSymbol.filename, {defined: [], include: [], variable: [], func: [], childFileSymbol: new Map()});
+                fileSymbol.childFileSymbol.set(lineSymbol.filename, {defined: [], include: [], variable: [], func: [], childFileSymbol: new Map(), lineno: lineSymbol.lineno});
             }
             targetSymbol = fileSymbol.childFileSymbol.get(lineSymbol.filename);
         }
@@ -108,12 +106,40 @@ function parse(filename: string, symbolInfo: string) {
                     targetSymbol.include.push({name: lineSymbol.filename, line: lineSymbol.lineno});
                     break;
                 case OP.DEFINE:
+                    let hasArgs = 0;
+                    let define = lineSymbol.detail.trim()
+                    let spacePos = define.search(`\\s+`);
+
+                    for (let index = 0; index < spacePos; index++) {
+                        const element = define[index];
+                        if (element == '(') {
+                            hasArgs = index;
+                            break;
+                        }
+                    }
+                    if (hasArgs) {
+                        let right = hasArgs;
+                        while (right < define.length && define[right] != ')') right++;
+                        let args = define.substring(hasArgs + 1, right).split(' ');
+                        args = args.filter(function (value: string, index: number, array: string[]) {
+                            return value.length > 0;
+                        })
+                        targetSymbol.defined.push({name: define.substring(0, hasArgs), line: lineSymbol.lineno, args: args})
+                    }
+                    else {
+                        if (spacePos < 0) {
+                            targetSymbol.defined.push({name: define, line: lineSymbol.lineno})
+                        }
+                        else {
+                            targetSymbol.defined.push({name: define.substring(0, spacePos), line: lineSymbol.lineno})
+                        }
+                    }
                     break
                 case OP.VAR:
-                    targetSymbol.variable.push({name: lineSymbol.filename, line: lineSymbol.lineno});
+                    targetSymbol.variable.push({name: lineSymbol.detail, line: lineSymbol.lineno});
                     break
                 case OP.FUNC:
-                    targetSymbol.include.push({name: lineSymbol.filename, line: lineSymbol.lineno, args: localArgs});
+                    targetSymbol.func.push({name: lineSymbol.detail, line: lineSymbol.lineno, args: [...localArgs]});
                     break
                 case OP.NEW:
                     localArgs.push(lineSymbol.detail);
@@ -131,6 +157,11 @@ function parse(filename: string, symbolInfo: string) {
                 default:
             }
         }
+    });
+
+    debug(JSON.stringify(fileSymbol, null, 4))
+    fileSymbol.childFileSymbol.forEach((value: FileSymbol, key: string, m: Map<string, FileSymbol>) => {
+        debug(JSON.stringify(value, null, 4))
     });
 }
 
