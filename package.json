@@ -1,0 +1,81 @@
+{
+  "name": "coc-lpcd",
+  "version": "0.0.0-development",
+  "description": "parse lpc symbol position and define",
+  "author": "lasorda <337447247@qq.com>",
+  "license": "MIT",
+  "main": "lib/index.js",
+  "keywords": [
+    "coc.nvim"
+  ],
+  "engines": {
+    "coc": "^0.0.80"
+  },
+  "scripts": {
+    "lint": "eslint src --ext ts",
+    "clean": "rimraf lib",
+    "watch": "node esbuild.js --watch",
+    "build": "node esbuild.js",
+    "prepare": "node esbuild.js"
+  },
+  "prettier": {
+    "singleQuote": true,
+    "printWidth": 120,
+    "semi": true
+  },
+  "devDependencies": {
+    "@types/node": "^15.12.4",
+    "@typescript-eslint/eslint-plugin": "^4.8.2",
+    "@typescript-eslint/parser": "^4.8.2",
+    "child_process": "^1.0.2",
+    "coc.nvim": "^0.0.80",
+    "esbuild": "^0.8.42",
+    "eslint": "^7.14.0",
+    "eslint-config-prettier": "^8.1.0",
+    "eslint-plugin-prettier": "^3.1.4",
+    "prettier": "^2.2.0",
+    "rimraf": "^3.0.2",
+    "sscanf": "^0.8.0",
+    "typescript": "^4.1.2"
+  },
+  "activationEvents": [
+    "*"
+  ],
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "coc-lpcd configuration",
+      "properties": {
+        "coc-lpcd.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable coc-lpcd extension"
+        },
+        "coc-lpcd.workspace": {
+          "type": "string",
+          "default": "newtxii",
+          "description": "lpc workspace root keyword"
+        },
+        "coc-lpcd.complie": {
+          "type": "string",
+          "default": "lpc_complie",
+          "description": "lpc_complie test.c at lib generate symbol info at lib/.symbol"
+        },
+        "coc-lpcd.efunc": {
+          "type": "array",
+          "default": [
+            "/etc/vscode_efun_define/efun_define.h",
+            "/sys/object/simul_efun.c"
+          ],
+          "description": "efun_define for engine defined function, simul_efun for global function"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "coc-lpcd.Command",
+        "title": "coc-lpcd command title"
+      }
+    ]
+  }
+}
