@@ -473,6 +473,8 @@ function provideCompletionItems(document: cocNvim.TextDocument, position: cocNvi
         return res;
     }
 
+    if (lineText.endsWith(">")) return [];
+
     // call this file
     let filename = getFileRelativePath(document.uri)
 
