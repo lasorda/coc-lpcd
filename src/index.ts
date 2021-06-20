@@ -1,19 +1,20 @@
-import {workspace, Logger, ExtensionContext, window, languages, TextDocument, Position, CancellationToken, CompletionContext, CompletionItem, CompletionItemKind, InsertTextFormat, Definition, ProviderResult, Range} from 'coc.nvim';
-import {exec, execSync} from 'child_process';
+import * as cocNvim from 'coc.nvim';
+import * as child_process from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import {INSPECT_MAX_BYTES} from 'buffer';
-import {syncBuiltinESMExports} from 'module';
 
 var sscanf = require('sscanf');
 var uri2path = require('file-uri-to-path');
 
-const cocLpcConfig = workspace.getConfiguration('coc-lpc');
+const cocLpcConfig = cocNvim.workspace.getConfiguration('coc-lpc');
 const workspaceStr = cocLpcConfig.get<string>("workspace", "newtxii");
 const complieCommand = cocLpcConfig.get<string>("complie", "lpc_compile");
 const efuncObjects = cocLpcConfig.get<Array<string>>('efunc', ["/etc/efun_define.c", "/sys/object/simul_efun.c"]);
 
-let logger: Logger;
+var projectFolder: string = "";
+var inc: string = "";
+
+let logger: cocNvim.Logger;
 
 function debug(message: any, ...args: any) {
     logger.info(message, ...args)
@@ -23,11 +24,8 @@ function getFileRelativePath(uri: string): string {
     return path.relative(projectFolder, uri2path(uri));
 }
 
-var projectFolder: string = "";
-var inc: string = "";
-
 function InitProjectFolder() {
-    let curPath = workspace.cwd;
+    let curPath = cocNvim.workspace.cwd;
     let pos = curPath.lastIndexOf(workspaceStr);
 
     if (pos >= 0) {
@@ -38,10 +36,10 @@ function InitProjectFolder() {
 
 function complie(filename: string): Boolean {
     try {
-        execSync(`cd ${projectFolder} && ${complieCommand} ${filename}`, {shell: "/bin/bash", stdio: 'ignore'});
+        child_process.execSync(`cd ${projectFolder} && ${complieCommand} ${filename}`, { shell: "/bin/bash", stdio: 'ignore' });
         return true;
     } catch (error) {
-        window.showMessage(`complie ${filename} error`);
+        cocNvim.window.showMessage(`complie ${filename} error`);
         return false;
     }
 }
@@ -93,7 +91,7 @@ interface FileSymbol {
     include: Symbol[],
     variable: Symbol[],
     func: Symbol[],
-    childFileSymbol: {[key: string]: FileSymbol},
+    childFileSymbol: { [key: string]: FileSymbol },
 }
 
 function parse(filename: string, symbolInfo: string) {
@@ -238,11 +236,11 @@ function parse(filename: string, symbolInfo: string) {
     return fileSymbol;
 }
 
-var fileSymbolCache: {[key: string]: FileSymbol} = {}
-var fileSymbolCacheTime: {[key: string]: number} = {}
+var fileSymbolCache: { [key: string]: FileSymbol } = {}
+var fileSymbolCacheTime: { [key: string]: number } = {}
 
 function generateFileSymbol(filename: string): FileSymbol {
-    let fileSymbol: FileSymbol = {defined: [], include: [], variable: [], func: [], childFileSymbol: {}, lineno: 0}
+    let fileSymbol: FileSymbol = { defined: [], include: [], variable: [], func: [], childFileSymbol: {}, lineno: 0 }
     if (filename in fileSymbolCacheTime && (Date.now() / 1000 - fileSymbolCacheTime[filename] < 2)) {
         return fileSymbolCache[filename];
     }
@@ -354,7 +352,7 @@ function getLocalVariable(filename: string, lineAt: number): Symbol[] {
     if (lastFunction && lastFunction.args && lastFunction.op) {
         for (let index = 0; index < lastFunction.args.length; index++) {
             const arg = lastFunction.args[index];
-            localArgs.push({name: arg, line: lastFunction.line, filename: filename})
+            localArgs.push({ name: arg, line: lastFunction.line, filename: filename })
         }
         for (let index = 0; index < lastFunction.op.length; index++) {
             const lineSymbol = lastFunction.op[index];
@@ -386,14 +384,14 @@ function getLocalVariable(filename: string, lineAt: number): Symbol[] {
     return localArgs;
 }
 
-function getLine(document: TextDocument, line: number): string {
-    return document.getText({start: {line: line - 1, character: 100000}, end: {line: line, character: 100000}});
+function getLine(document: cocNvim.TextDocument, line: number): string {
+    return document.getText({ start: { line: line - 1, character: 100000 }, end: { line: line, character: 100000 } });
 }
 
-var completionCache: {[key: string]: CompletionItem[]} = {}
-var completionCacheTime: {[key: string]: number} = {}
+var completionCache: { [key: string]: cocNvim.CompletionItem[] } = {}
+var completionCacheTime: { [key: string]: number } = {}
 
-function provideCompletionItems(document: TextDocument, position: Position, token: CancellationToken, context?: CompletionContext): CompletionItem[] {
+function provideCompletionItems(document: cocNvim.TextDocument, position: cocNvim.Position, token: cocNvim.CancellationToken, context?: cocNvim.CompletionContext): cocNvim.CompletionItem[] {
     const line = getLine(document, position.line)
     const lineText = line.substring(0, position.character);
     let reg: RegExp;
@@ -409,7 +407,7 @@ function provideCompletionItems(document: TextDocument, position: Position, toke
     reg = /#include\s+?(\")([\w|\/]*?)$/;
     if (reg.test(lineText)) {
         let exec_result = reg.exec(lineText)
-        let result: CompletionItem[] = [];
+        let result: cocNvim.CompletionItem[] = [];
 
         if (exec_result) {
             if (exec_result[2].search('/') == -1) result.push(...getFileAndDir(inc));
@@ -461,15 +459,15 @@ function provideCompletionItems(document: TextDocument, position: Position, toke
             }
         }
         file = prettyFilename(file.substring(1, file.length - 1));
-        let res: CompletionItem[] = []
+        let res: cocNvim.CompletionItem[] = []
         let allFunction = getDefineFunction(file, -1, true);
         for (let index = 0; index < allFunction.length; index++) {
             const func = allFunction[index];
             res.push({
                 label: func.name,
-                kind: CompletionItemKind.Function,
+                kind: cocNvim.CompletionItemKind.Function,
                 insertText: func.name + makeSnippetPlaceHolderStr(func.args || []),
-                insertTextFormat: InsertTextFormat.Snippet,
+                insertTextFormat: cocNvim.InsertTextFormat.Snippet,
             })
         }
         return res;
@@ -483,22 +481,22 @@ function provideCompletionItems(document: TextDocument, position: Position, toke
         return completionCache[filename];
     }
 
-    let res: CompletionItem[] = []
+    let res: cocNvim.CompletionItem[] = []
     for (const local of getLocalVariable(filename, position.line)) {
         res.push({
             label: local.name,
-            kind: CompletionItemKind.Variable,
+            kind: cocNvim.CompletionItemKind.Variable,
             insertText: local.name,
-            insertTextFormat: InsertTextFormat.PlainText,
+            insertTextFormat: cocNvim.InsertTextFormat.PlainText,
         });
 
     }
     for (const func of getVisibleFunction(filename, position.line)) {
         res.push({
             label: func.name,
-            kind: CompletionItemKind.Function,
+            kind: cocNvim.CompletionItemKind.Function,
             insertText: func.name + makeSnippetPlaceHolderStr(func.args || []),
-            insertTextFormat: InsertTextFormat.Snippet,
+            insertTextFormat: cocNvim.InsertTextFormat.Snippet,
         })
     }
     for (const define of getMacroDefine(filename, position.line, true)) {
@@ -506,26 +504,26 @@ function provideCompletionItems(document: TextDocument, position: Position, toke
         if (define.args?.length) {
             res.push({
                 label: define.name,
-                kind: CompletionItemKind.Constant,
+                kind: cocNvim.CompletionItemKind.Constant,
                 insertText: define.name + makeSnippetPlaceHolderStr(define.args || []),
-                insertTextFormat: InsertTextFormat.Snippet,
+                insertTextFormat: cocNvim.InsertTextFormat.Snippet,
             })
         }
         else {
             res.push({
                 label: define.name,
-                kind: CompletionItemKind.Constant,
+                kind: cocNvim.CompletionItemKind.Constant,
                 insertText: define.name,
-                insertTextFormat: InsertTextFormat.PlainText,
+                insertTextFormat: cocNvim.InsertTextFormat.PlainText,
             })
         }
     }
     for (const variable of getGlobalVariable(filename, position.line, true)) {
         res.push({
             label: variable.name,
-            kind: CompletionItemKind.Variable,
+            kind: cocNvim.CompletionItemKind.Variable,
             insertText: variable.name,
-            insertTextFormat: InsertTextFormat.PlainText,
+            insertTextFormat: cocNvim.InsertTextFormat.PlainText,
         })
     }
     completionCache[filename] = res;
@@ -551,8 +549,8 @@ function prettyFilename(filename: string): string {
     return path.resolve("/", ...filename.replace(/\//, ' ').split(' ')).substring(1);
 }
 
-function getFileAndDir(dirPath: string): CompletionItem[] {
-    let output: CompletionItem[] = [];
+function getFileAndDir(dirPath: string): cocNvim.CompletionItem[] {
+    let output: cocNvim.CompletionItem[] = [];
 
     if (!fs.existsSync(dirPath)) return output;
 
@@ -567,14 +565,14 @@ function getFileAndDir(dirPath: string): CompletionItem[] {
         let isDir = stats.isDirectory();
         if (isFile && (filedir.search('\\.c') != -1 || filedir.search('\\.h') != -1)) {
             filedir = filedir.replace(dirPath, "").replace(/\\/g, '/').substr(1)
-            output.push({label: filedir, kind: CompletionItemKind.File, insertText: filedir});
+            output.push({ label: filedir, kind: cocNvim.CompletionItemKind.File, insertText: filedir });
         }
         else if (isDir) {
             filedir = filedir.replace(dirPath, "").replace(/\\/g, '/').substr(1) + "/";
             if (filedir.substring(0, 1) == '.') continue;
             output.push({
                 label: filedir,
-                kind: CompletionItemKind.Folder,
+                kind: cocNvim.CompletionItemKind.Folder,
                 insertText: filedir.replace('/', ''),
             });
         }
@@ -582,7 +580,7 @@ function getFileAndDir(dirPath: string): CompletionItem[] {
     return output;
 };
 
-function getWordRangeAtPosition(document: TextDocument, position: Position): Range {
+function getWordRangeAtPosition(document: cocNvim.TextDocument, position: cocNvim.Position): cocNvim.Range {
     let line = getLine(document, position.line)
     let lineNumber = position.line
     let left = position.character, right = position.character
@@ -599,14 +597,14 @@ function getWordRangeAtPosition(document: TextDocument, position: Position): Ran
         || line[right] == '_'
         || line[right] == '/')) right++;
 
-    return {start: {line: lineNumber, character: left}, end: {line: lineNumber, character: right}};
+    return { start: { line: lineNumber, character: left }, end: { line: lineNumber, character: right } };
 }
 
-function getActiveTextEditorData(document: TextDocument): string {
-    return workspace.getDocument(document.uri).content;
+function getActiveTextEditorData(document: cocNvim.TextDocument): string {
+    return cocNvim.workspace.getDocument(document.uri).content;
 };
 
-function provideDefinition(document: TextDocument, position: Position): ProviderResult<Definition> {
+function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Position): cocNvim.ProviderResult<cocNvim.Definition> {
     const filename = getFileRelativePath(document.uri)
     const word = document.getText(getWordRangeAtPosition(document, position));
     const lineText = getLine(document, position.line).trim();
@@ -669,7 +667,7 @@ function provideDefinition(document: TextDocument, position: Position): Provider
                 return {
                     uri: uri,
                     range: {
-                        start: {line: 0, character: 0}, end: {line: 0, character: 0}
+                        start: { line: 0, character: 0 }, end: { line: 0, character: 0 }
                     }
                 };
             }
@@ -690,7 +688,7 @@ function provideDefinition(document: TextDocument, position: Position): Provider
                     return {
                         uri: path.resolve(projectFolder, inner),
                         range: {
-                            start: {line: 0, character: 0}, end: {line: 0, character: 0}
+                            start: { line: 0, character: 0 }, end: { line: 0, character: 0 }
                         }
                     };
                 }
@@ -699,7 +697,7 @@ function provideDefinition(document: TextDocument, position: Position): Provider
                     return {
                         uri: path.resolve(projectFolder, inner),
                         range: {
-                            start: {line: 0, character: 0}, end: {line: 0, character: 0}
+                            start: { line: 0, character: 0 }, end: { line: 0, character: 0 }
                         }
                     };
                 }
@@ -710,7 +708,7 @@ function provideDefinition(document: TextDocument, position: Position): Provider
             return {
                 uri: path.resolve(projectFolder, target),
                 range: {
-                    start: {line: 0, character: 0}, end: {line: 0, character: 0}
+                    start: { line: 0, character: 0 }, end: { line: 0, character: 0 }
                 }
             };
         }
@@ -723,7 +721,7 @@ function provideDefinition(document: TextDocument, position: Position): Provider
         return {
             uri: path.resolve(projectFolder, target),
             range: {
-                start: {line: 0, character: 0}, end: {line: 0, character: 0}
+                start: { line: 0, character: 0 }, end: { line: 0, character: 0 }
             }
         };
     }
@@ -733,8 +731,8 @@ function provideDefinition(document: TextDocument, position: Position): Provider
             return {
                 uri: document.uri,
                 range: {
-                    start: {line: local.line - 1, character: 0},
-                    end: {line: local.line - 1, character: 0}
+                    start: { line: local.line - 1, character: 0 },
+                    end: { line: local.line - 1, character: 0 }
                 }
             };
         }
@@ -745,8 +743,8 @@ function provideDefinition(document: TextDocument, position: Position): Provider
             return {
                 uri: path.resolve(projectFolder, variable.filename),
                 range: {
-                    start: {line: variable.line - 1, character: 0},
-                    end: {line: variable.line - 1, character: 0}
+                    start: { line: variable.line - 1, character: 0 },
+                    end: { line: variable.line - 1, character: 0 }
                 }
             };
         }
@@ -757,8 +755,8 @@ function provideDefinition(document: TextDocument, position: Position): Provider
             return {
                 uri: path.resolve(projectFolder, func.filename),
                 range: {
-                    start: {line: func.line - 1, character: 0},
-                    end: {line: func.line - 1, character: 0}
+                    start: { line: func.line - 1, character: 0 },
+                    end: { line: func.line - 1, character: 0 }
                 }
             };
         }
@@ -769,8 +767,8 @@ function provideDefinition(document: TextDocument, position: Position): Provider
             return {
                 uri: path.resolve(projectFolder, define.filename),
                 range: {
-                    start: {line: define.line - 1, character: 0},
-                    end: {line: define.line - 1, character: 0}
+                    start: { line: define.line - 1, character: 0 },
+                    end: { line: define.line - 1, character: 0 }
                 }
             }
         }
@@ -779,10 +777,10 @@ function provideDefinition(document: TextDocument, position: Position): Provider
 }
 
 
-export async function activate(context: ExtensionContext): Promise<void> {
-    window.showMessage(`coc-lpcd works!`);
+export async function activate(context: cocNvim.ExtensionContext): Promise<void> {
+    cocNvim.window.showMessage(`coc-lpcd works!`);
     logger = context.logger;
     InitProjectFolder();
-    context.subscriptions.push(languages.registerCompletionItemProvider('coc-lpcd', 'LPC', 'lpc', {provideCompletionItems}, ['/', '>', '<']));
-    context.subscriptions.push(languages.registerDefinitionProvider([{language: 'lpc'}], {provideDefinition}));
+    context.subscriptions.push(cocNvim.languages.registerCompletionItemProvider('coc-lpcd', 'LPC', 'lpc', { provideCompletionItems }, ['/', '>', '<']));
+    context.subscriptions.push(cocNvim.languages.registerDefinitionProvider([{ language: 'lpc' }], { provideDefinition }));
 }
