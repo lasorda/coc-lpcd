@@ -37,7 +37,8 @@ function InitProjectFolder() {
 
 function complie(filename: string): Boolean {
     try {
-        child_process.execSync(`cd ${projectFolder} && ${complieCommand} ${filename}`, { shell: "/bin/bash", stdio: "pipe" });
+        // too ugly
+        child_process.execSync(`cd ${projectFolder}; mv log/debug.log log/bak.log; ${complieCommand} ${filename}; mv log/debug.log log/complie.log ; mv log/bak.log log/debug.log`, { shell: "/bin/bash", stdio: "pipe" });
         return true;
     } catch (e) {
         logger.error(e)
