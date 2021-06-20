@@ -287,7 +287,7 @@ function getDefineFunction(filename: string, line: number, includeChild: Boolean
 function getVisibleFunction(filename: string, line: number): Symbol[] {
     let res = getDefineFunction(filename, line, true);
     efuncObjects.forEach(efuncFile => {
-        res.push(...getDefineFunction(efuncFile, -1, true))
+        res.push(...getDefineFunction(prettyFilename(efuncFile), -1, true))
     });
     return res;
 }
@@ -503,7 +503,6 @@ function provideCompletionItems(document: cocNvim.TextDocument, position: cocNvi
         })
     }
     for (const define of getMacroDefine(filename, position.line, true)) {
-        debug(define)
         if (define.args?.length) {
             res.push({
                 label: define.name,
@@ -665,7 +664,6 @@ function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Pos
         let exec_result = reg.exec(lineText)
         if (exec_result) {
             let uri = path.resolve(inc, exec_result[1]);
-            debug(uri, word);
             if (fs.existsSync(uri)) {
                 return {
                     uri: uri,
@@ -803,7 +801,7 @@ function provideDocumentSymbols(document: cocNvim.TextDocument, token: cocNvim.C
             kind: vslp.SymbolKind.Constant,
             range: { start: { line: define.line - 1, character: 0 }, end: { line: define.line - 1, character: 0 } },
             selectionRange: { start: { line: define.line - 1, character: 0 }, end: { line: define.line - 1, character: 0 } },
-            children:child,
+            children: child,
         });
     }
     for (const variable of getGlobalVariable(filename, -1, false)) {
