@@ -2,6 +2,7 @@ import * as cocNvim from 'coc.nvim';
 import * as child_process from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as vslp from "vscode-languageserver-protocol";
 
 var sscanf = require('sscanf');
 var uri2path = require('file-uri-to-path');
@@ -778,11 +779,72 @@ function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Pos
     return null;
 }
 
+function provideDocumentSymbols(document: cocNvim.TextDocument, token: cocNvim.CancellationToken): cocNvim.DocumentSymbol[] {
+    let filename = getFileRelativePath(document.uri);
+
+    let output: cocNvim.DocumentSymbol[] = [];
+    for (const define of getMacroDefine(filename, -1, false)) {
+        let child: cocNvim.DocumentSymbol[] = [];
+        if (define.args) {
+            for (const arg of define.args) {
+                child.push({
+                    name: arg,
+                    detail: arg,
+                    kind: vslp.SymbolKind.Variable,
+                    range: { start: { line: define.line - 1, character: 0 }, end: { line: define.line - 1, character: 0 } },
+                    selectionRange: { start: { line: define.line - 1, character: 0 }, end: { line: define.line - 1, character: 0 } },
+                });
+            }
+        }
+
+        output.push({
+            name: define.name,
+            detail: define.detail,
+            kind: vslp.SymbolKind.Constant,
+            range: { start: { line: define.line - 1, character: 0 }, end: { line: define.line - 1, character: 0 } },
+            selectionRange: { start: { line: define.line - 1, character: 0 }, end: { line: define.line - 1, character: 0 } },
+            children:child,
+        });
+    }
+    for (const variable of getGlobalVariable(filename, -1, false)) {
+        output.push({
+            name: variable.name,
+            detail: variable.detail,
+            kind: vslp.SymbolKind.Variable,
+            range: { start: { line: variable.line - 1, character: 0 }, end: { line: variable.line - 1, character: 0 } },
+            selectionRange: { start: { line: variable.line - 1, character: 0 }, end: { line: variable.line - 1, character: 0 } },
+        });
+    }
+
+    for (const func of getDefineFunction(filename, -1, false)) {
+        let child: cocNvim.DocumentSymbol[] = [];
+        if (func.args) {
+            for (const arg of func.args) {
+                child.push({
+                    name: arg,
+                    detail: arg,
+                    kind: vslp.SymbolKind.Variable,
+                    range: { start: { line: func.line - 1, character: 0 }, end: { line: func.line - 1, character: 0 } },
+                    selectionRange: { start: { line: func.line - 1, character: 0 }, end: { line: func.line - 1, character: 0 } },
+                });
+            }
+        }
+        output.push({
+            name: func.name,
+            detail: func.detail,
+            kind: vslp.SymbolKind.Function,
+            range: { start: { line: func.line - 1, character: 0 }, end: { line: func.line - 1, character: 0 } },
+            selectionRange: { start: { line: func.line - 1, character: 0 }, end: { line: func.line - 1, character: 0 } },
+            children: child,
+        });
+    }
+    return output;
+}
 
 export async function activate(context: cocNvim.ExtensionContext): Promise<void> {
-    cocNvim.window.showMessage(`coc-lpcd works!`);
     logger = context.logger;
     InitProjectFolder();
     context.subscriptions.push(cocNvim.languages.registerCompletionItemProvider('coc-lpcd', 'LPC', 'lpc', { provideCompletionItems }, ['/', '>', '<']));
     context.subscriptions.push(cocNvim.languages.registerDefinitionProvider([{ language: 'lpc' }], { provideDefinition }));
+    context.subscriptions.push(cocNvim.languages.registerDocumentSymbolProvider([{ language: "lpc" }], { provideDocumentSymbols }));
 }
