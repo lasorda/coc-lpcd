@@ -37,10 +37,10 @@ function InitProjectFolder() {
 
 function complie(filename: string): Boolean {
     try {
-        child_process.execSync(`cd ${projectFolder} && ${complieCommand} ${filename}`, { shell: "/bin/bash", stdio: 'ignore' });
+        child_process.execSync(`cd ${projectFolder} && ${complieCommand} ${filename}`, { shell: "/bin/bash", stdio: "pipe" });
         return true;
-    } catch (error) {
-        cocNvim.window.showMessage(`complie ${filename} error`);
+    } catch (e) {
+        logger.error(e)
         return false;
     }
 }
@@ -606,6 +606,30 @@ function getActiveTextEditorData(document: cocNvim.TextDocument): string {
     return cocNvim.workspace.getDocument(document.uri).content;
 };
 
+function searchInLine(line: string, word: string): number {
+    let reg = new RegExp(`\\b${word}\\b`)
+    if (reg.test(line)) {
+        let exec_result = reg.exec(line)
+        if (exec_result) {
+            return exec_result["index"];
+        }
+    }
+    return 0;
+}
+
+function getRangeofWordInFileLine(filename: string, line: number, word: string): cocNvim.Range {
+    let res: cocNvim.Range = { start: { line: line, character: 0 }, end: { line: line, character: 0 } };
+    if (fs.existsSync(filename)) {
+        let filelines = fs.readFileSync(filename).toString().split("\n");
+
+        if (line < filelines.length) {
+            let linePos = searchInLine(filelines[line], word);
+            res.start.character = linePos;
+            res.start.character = linePos;
+        }
+    }
+    return res;
+}
 function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Position): cocNvim.ProviderResult<cocNvim.Definition> {
     const filename = getFileRelativePath(document.uri)
     const word = document.getText(getWordRangeAtPosition(document, position));
@@ -643,16 +667,7 @@ function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Pos
             if (func.name == word) {
                 return {
                     uri: path.resolve(projectFolder, func.filename),
-                    range: {
-                        start: {
-                            line: func.line - 1,
-                            character: 0
-                        },
-                        end: {
-                            line: func.line - 1,
-                            character: 0
-                        }
-                    }
+                    range: getRangeofWordInFileLine(path.resolve(projectFolder, func.filename), func.line - 1, func.name),
                 };
             }
         }
@@ -702,16 +717,18 @@ function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Pos
                         }
                     };
                 }
+                return null;
             }
             else {
                 target = target.substring(1)
+                return {
+                    uri: path.resolve(projectFolder, target),
+                    range: {
+                        start: { line: 0, character: 0 }, end: { line: 0, character: 0 }
+                    }
+                };
+
             }
-            return {
-                uri: path.resolve(projectFolder, target),
-                range: {
-                    start: { line: 0, character: 0 }, end: { line: 0, character: 0 }
-                }
-            };
         }
         return;
     }
@@ -731,10 +748,7 @@ function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Pos
         if (local.name == word) {
             return {
                 uri: document.uri,
-                range: {
-                    start: { line: local.line - 1, character: 0 },
-                    end: { line: local.line - 1, character: 0 }
-                }
+                range: getRangeofWordInFileLine(uri2path(document.uri), local.line - 1, local.name),
             };
         }
     }
@@ -755,10 +769,7 @@ function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Pos
         if (func.name == word) {
             return {
                 uri: path.resolve(projectFolder, func.filename),
-                range: {
-                    start: { line: func.line - 1, character: 0 },
-                    end: { line: func.line - 1, character: 0 }
-                }
+                range: getRangeofWordInFileLine(path.resolve(projectFolder, func.filename), func.line - 1, func.name),
             };
         }
     }
@@ -767,10 +778,11 @@ function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Pos
         if (define.name == word) {
             return {
                 uri: path.resolve(projectFolder, define.filename),
-                range: {
-                    start: { line: define.line - 1, character: 0 },
-                    end: { line: define.line - 1, character: 0 }
-                }
+                range: getRangeofWordInFileLine(path.resolve(projectFolder, define.filename), define.line - 1, define.name),
+                // range: {
+                //     start: { line: define.line - 1, character: 0 },
+                //     end: { line: define.line - 1, character: 0 }
+                // }
             }
         }
     }
