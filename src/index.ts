@@ -46,7 +46,7 @@ function complie(filename: string): Boolean {
     }
 }
 
-const symbolDir = '.symbol';
+const symbolDir = 'log/symbol/';
 
 function loadSymbol(filename: string) {
     if (filename.startsWith("/")) {
