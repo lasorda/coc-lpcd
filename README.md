@@ -48,9 +48,9 @@ Detail
 |4|函数定义|函数名|define_new_function
 |5|定义局部变量|变量名|add_local_name
 |6|取消局部变量定义|取消个数|pop_n_locals
-|7|取消所有的函局部函数定义|无|free_all_local_names
+|7|取消所有的局部变量定义|无|free_all_local_names
 
-文件名和行号来自于`current_file, current_line`
+文件名和行号来自于yacc解析过程中的`current_file`和`current_line`。
 
 ## 配置
 ```json
@@ -67,6 +67,7 @@ Detail
 1. coc-lpcd.efunc: 这里面定义的函数，任何一个脚本都能访问。
 2. coc-lpcd.include: #include <incfile>查找的目录。
 3. coc-lpcd.workspace: 确定根目录`project`的目录名。
+4. coc-lpcd.complie: 生成符号文件的命令。
 
 ## 代码细节
 代码核心部分是个parse函数，传入指定的文件，对编译之后的符号文件进行解析生成`FileSymbol`
@@ -101,8 +102,5 @@ interface Symbol {
 释放所有局部变量的时候，清空局部变量栈。
 
 记录最后一个定义的函数符号，将和局部变量的相关的操作全部加入到队列中，在释放所有局部变量的时候，将队列挂到符号的op中。在进行局部变量名提示的时候，根据当前行号找到函数符号，回放队列中的操作，直到当前行，此时队列中剩余的局部变量，就是可以访问的局部变量名。
-
-
-
 
 > This extension is built with [create-coc-extension](https://github.com/fannheyward/create-coc-extension)
