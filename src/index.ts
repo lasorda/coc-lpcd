@@ -441,7 +441,7 @@ function provideCompletionItems(document: cocNvim.TextDocument, position: cocNvi
     }
 
     // object call
-    reg = /([\w\/\"\.]+|this_object\(\))->/;
+    reg = /([\w\/\"\.]+|this_object\(\))->$/;
     if (reg.test(lineText)) {
         let exec_result = reg.exec(lineText);
         let file = "";
