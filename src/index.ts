@@ -769,17 +769,29 @@ function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Pos
         if (variable.name == word) {
             return {
                 uri: path.resolve(projectFolder, variable.filename),
-                range: getRangeofWordInFileLine(uri2path(path.resolve(projectFolder, variable.filename)), variable.line - 1, variable.name),
+                range: getRangeofWordInFileLine(path.resolve(projectFolder, variable.filename), variable.line - 1, variable.name),
             };
         }
     }
 
-    for (const func of getVisibleFunction(filename, position.line)) {
+    for (const func of getDefineFunction(filename, position.line, true)) {
         if (func.name == word) {
             return {
                 uri: path.resolve(projectFolder, func.filename),
                 range: getRangeofWordInFileLine(path.resolve(projectFolder, func.filename), func.line - 1, func.name),
             };
+        }
+    }
+
+    for (let index = 0; index < efuncObjects.length; index++) {
+        const efuncFile = efuncObjects[index];
+        for (const func of getDefineFunction(efuncFile, position.line, true)) {
+            if (func.name == word) {
+                return {
+                    uri: path.resolve(projectFolder, func.filename),
+                    range: getRangeofWordInFileLine(path.resolve(projectFolder, func.filename), func.line - 1, func.name),
+                };
+            }
         }
     }
 

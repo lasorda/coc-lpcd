@@ -1,6 +1,6 @@
 {
   "name": "coc-lpcd",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "parse lpc symbol position and define",
   "author": "lasorda <337447247@qq.com>",
   "license": "MIT",
