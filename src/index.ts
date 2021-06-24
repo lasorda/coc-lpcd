@@ -635,7 +635,7 @@ var lastdotcfile: string = "";
 
 function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Position): cocNvim.ProviderResult<cocNvim.Definition> {
     const word = document.getText(getWordRangeAtPosition(document, position));
-    const lineText = getLine(document, position.line).trim();
+    const lineText = getLine(document, position.line);
     var filename = getFileRelativePath(document.uri)
 
     if (filename.endsWith(".c")) {
@@ -647,9 +647,11 @@ function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Pos
     }
 
     // -> call jump
-    let reg = new RegExp(`([\\w\\/\\"\\.]+|this_object\\(\\))->${word.replace(/\//g, '\\/')}`);
+    let reg = new RegExp(`([\\w\\/\\"\\.]+|this_object\\(\\))->${word.replace(/\//g, '\\/')}\\(`);
     let exec_result = reg.exec(lineText)
-    if (exec_result != null && exec_result[1] != null) {
+    if (exec_result != null && exec_result[1] != null
+        && exec_result["index"] + exec_result[1].length + 2 <= position.character
+        && exec_result["index"] + exec_result[1].length + word.length >= position.character - 1) {
         let from = "";
 
         if (exec_result[1] == 'this_object()') {
