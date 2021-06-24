@@ -631,10 +631,21 @@ function getRangeofWordInFileLine(filename: string, line: number, word: string):
     }
     return res;
 }
+
+var lastdotcfile: string = "";
+
 function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Position): cocNvim.ProviderResult<cocNvim.Definition> {
-    const filename = getFileRelativePath(document.uri)
     const word = document.getText(getWordRangeAtPosition(document, position));
     const lineText = getLine(document, position.line).trim();
+    var filename = getFileRelativePath(document.uri)
+
+    if (filename.endsWith(".c")) {
+        lastdotcfile = filename;
+    }
+    else if (filename.endsWith(".h") && lastdotcfile.length) {
+        // when deal with .h file, try best find 
+        filename = lastdotcfile;
+    }
 
     // -> call jump
     let reg = new RegExp(`([\\w\\/\\"\\.]+|this_object\\(\\))->${word.replace(/\//g, '\\/')}`);
@@ -758,10 +769,7 @@ function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Pos
         if (variable.name == word) {
             return {
                 uri: path.resolve(projectFolder, variable.filename),
-                range: {
-                    start: {line: variable.line - 1, character: 0},
-                    end: {line: variable.line - 1, character: 0}
-                }
+                range: getRangeofWordInFileLine(uri2path(path.resolve(projectFolder, variable.filename)), variable.line - 1, variable.name),
             };
         }
     }
@@ -780,10 +788,6 @@ function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Pos
             return {
                 uri: path.resolve(projectFolder, define.filename),
                 range: getRangeofWordInFileLine(path.resolve(projectFolder, define.filename), define.line - 1, define.name),
-                // range: {
-                //     start: { line: define.line - 1, character: 0 },
-                //     end: { line: define.line - 1, character: 0 }
-                // }
             }
         }
     }
@@ -802,8 +806,8 @@ function provideDocumentSymbols(document: cocNvim.TextDocument, token: cocNvim.C
                     name: arg,
                     detail: arg,
                     kind: vslp.SymbolKind.Variable,
-                    range: {start: {line: define.line - 1, character: 0}, end: {line: define.line - 1, character: 0}},
-                    selectionRange: {start: {line: define.line - 1, character: 0}, end: {line: define.line - 1, character: 0}},
+                    range: getRangeofWordInFileLine(filename, define.line - 1, define.name),
+                    selectionRange: getRangeofWordInFileLine(filename, define.line - 1, define.name),
                 });
             }
         }
@@ -812,8 +816,8 @@ function provideDocumentSymbols(document: cocNvim.TextDocument, token: cocNvim.C
             name: define.name,
             detail: define.detail,
             kind: vslp.SymbolKind.Constant,
-            range: {start: {line: define.line - 1, character: 0}, end: {line: define.line - 1, character: 0}},
-            selectionRange: {start: {line: define.line - 1, character: 0}, end: {line: define.line - 1, character: 0}},
+            range: getRangeofWordInFileLine(filename, define.line - 1, define.name),
+            selectionRange: getRangeofWordInFileLine(filename, define.line - 1, define.name),
             children: child,
         });
     }
@@ -822,8 +826,8 @@ function provideDocumentSymbols(document: cocNvim.TextDocument, token: cocNvim.C
             name: variable.name,
             detail: variable.detail,
             kind: vslp.SymbolKind.Variable,
-            range: {start: {line: variable.line - 1, character: 0}, end: {line: variable.line - 1, character: 0}},
-            selectionRange: {start: {line: variable.line - 1, character: 0}, end: {line: variable.line - 1, character: 0}},
+            range: getRangeofWordInFileLine(filename, variable.line - 1, variable.name),
+            selectionRange: getRangeofWordInFileLine(filename, variable.line - 1, variable.name),
         });
     }
 
@@ -835,8 +839,8 @@ function provideDocumentSymbols(document: cocNvim.TextDocument, token: cocNvim.C
                     name: arg,
                     detail: arg,
                     kind: vslp.SymbolKind.Variable,
-                    range: {start: {line: func.line - 1, character: 0}, end: {line: func.line - 1, character: 0}},
-                    selectionRange: {start: {line: func.line - 1, character: 0}, end: {line: func.line - 1, character: 0}},
+                    range: getRangeofWordInFileLine(filename, func.line - 1, func.name),
+                    selectionRange: getRangeofWordInFileLine(filename, func.line - 1, func.name),
                 });
             }
         }
@@ -844,8 +848,8 @@ function provideDocumentSymbols(document: cocNvim.TextDocument, token: cocNvim.C
             name: func.name,
             detail: func.detail,
             kind: vslp.SymbolKind.Function,
-            range: {start: {line: func.line - 1, character: 0}, end: {line: func.line - 1, character: 0}},
-            selectionRange: {start: {line: func.line - 1, character: 0}, end: {line: func.line - 1, character: 0}},
+            range: getRangeofWordInFileLine(filename, func.line - 1, func.name),
+            selectionRange: getRangeofWordInFileLine(filename, func.line - 1, func.name),
             children: child,
         });
     }
