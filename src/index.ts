@@ -81,7 +81,6 @@ interface Symbol {
     name: string,
     line: number,
     filename: string,
-    // detail?: string,
     args?: string[],
     op?: LineSymbol[],
     detail?: string,
@@ -504,7 +503,7 @@ function provideCompletionItems(document: cocNvim.TextDocument, position: cocNvi
         })
     }
     for (const define of getMacroDefine(filename, position.line, true)) {
-        if (define.args?.length) {
+        if (define.args) {
             res.push({
                 label: define.name,
                 kind: cocNvim.CompletionItemKind.Constant,
