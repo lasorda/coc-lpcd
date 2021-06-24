@@ -38,7 +38,7 @@ function InitProjectFolder() {
 function complie(filename: string): Boolean {
     try {
         // too ugly
-        child_process.execSync(`cd ${projectFolder}; mv log/debug.log log/bak.log; ${complieCommand} ${filename}; mv log/debug.log log/complie.log ; mv log/bak.log log/debug.log`, { shell: "/bin/bash", stdio: "pipe" });
+        child_process.execSync(`cd ${projectFolder}; mv log/debug.log log/bak.log; ${complieCommand} ${filename}; mv log/debug.log log/complie.log ; mv log/bak.log log/debug.log`, {shell: "/bin/bash", stdio: "pipe"});
         return true;
     } catch (e) {
         logger.error(e)
@@ -93,7 +93,7 @@ interface FileSymbol {
     include: Symbol[],
     variable: Symbol[],
     func: Symbol[],
-    childFileSymbol: { [key: string]: FileSymbol },
+    childFileSymbol: {[key: string]: FileSymbol},
 }
 
 function parse(filename: string, symbolInfo: string) {
@@ -238,11 +238,11 @@ function parse(filename: string, symbolInfo: string) {
     return fileSymbol;
 }
 
-var fileSymbolCache: { [key: string]: FileSymbol } = {}
-var fileSymbolCacheTime: { [key: string]: number } = {}
+var fileSymbolCache: {[key: string]: FileSymbol} = {}
+var fileSymbolCacheTime: {[key: string]: number} = {}
 
 function generateFileSymbol(filename: string): FileSymbol {
-    let fileSymbol: FileSymbol = { defined: [], include: [], variable: [], func: [], childFileSymbol: {}, lineno: 0 }
+    let fileSymbol: FileSymbol = {defined: [], include: [], variable: [], func: [], childFileSymbol: {}, lineno: 0}
     if (filename in fileSymbolCacheTime && (Date.now() / 1000 - fileSymbolCacheTime[filename] < 2)) {
         return fileSymbolCache[filename];
     }
@@ -354,7 +354,7 @@ function getLocalVariable(filename: string, lineAt: number): Symbol[] {
     if (lastFunction && lastFunction.args && lastFunction.op) {
         for (let index = 0; index < lastFunction.args.length; index++) {
             const arg = lastFunction.args[index];
-            localArgs.push({ name: arg, line: lastFunction.line, filename: filename })
+            localArgs.push({name: arg, line: lastFunction.line, filename: filename})
         }
         for (let index = 0; index < lastFunction.op.length; index++) {
             const lineSymbol = lastFunction.op[index];
@@ -387,11 +387,11 @@ function getLocalVariable(filename: string, lineAt: number): Symbol[] {
 }
 
 function getLine(document: cocNvim.TextDocument, line: number): string {
-    return document.getText({ start: { line: line - 1, character: 100000 }, end: { line: line, character: 100000 } });
+    return document.getText({start: {line: line - 1, character: 100000}, end: {line: line, character: 100000}});
 }
 
-var completionCache: { [key: string]: cocNvim.CompletionItem[] } = {}
-var completionCacheTime: { [key: string]: number } = {}
+var completionCache: {[key: string]: cocNvim.CompletionItem[]} = {}
+var completionCacheTime: {[key: string]: number} = {}
 
 function provideCompletionItems(document: cocNvim.TextDocument, position: cocNvim.Position, token: cocNvim.CancellationToken, context?: cocNvim.CompletionContext): cocNvim.CompletionItem[] {
     const line = getLine(document, position.line)
@@ -568,7 +568,7 @@ function getFileAndDir(dirPath: string): cocNvim.CompletionItem[] {
         let isDir = stats.isDirectory();
         if (isFile && (filedir.search('\\.c') != -1 || filedir.search('\\.h') != -1)) {
             filedir = filedir.replace(dirPath, "").replace(/\\/g, '/').substr(1)
-            output.push({ label: filedir, kind: cocNvim.CompletionItemKind.File, insertText: filedir });
+            output.push({label: filedir, kind: cocNvim.CompletionItemKind.File, insertText: filedir});
         }
         else if (isDir) {
             filedir = filedir.replace(dirPath, "").replace(/\\/g, '/').substr(1) + "/";
@@ -600,7 +600,7 @@ function getWordRangeAtPosition(document: cocNvim.TextDocument, position: cocNvi
         || line[right] == '_'
         || line[right] == '/')) right++;
 
-    return { start: { line: lineNumber, character: left }, end: { line: lineNumber, character: right } };
+    return {start: {line: lineNumber, character: left}, end: {line: lineNumber, character: right}};
 }
 
 function getActiveTextEditorData(document: cocNvim.TextDocument): string {
@@ -619,7 +619,7 @@ function searchInLine(line: string, word: string): number {
 }
 
 function getRangeofWordInFileLine(filename: string, line: number, word: string): cocNvim.Range {
-    let res: cocNvim.Range = { start: { line: line, character: 0 }, end: { line: line, character: 0 } };
+    let res: cocNvim.Range = {start: {line: line, character: 0}, end: {line: line, character: 0}};
     if (fs.existsSync(filename)) {
         let filelines = fs.readFileSync(filename).toString().split("\n");
 
@@ -684,7 +684,7 @@ function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Pos
                 return {
                     uri: uri,
                     range: {
-                        start: { line: 0, character: 0 }, end: { line: 0, character: 0 }
+                        start: {line: 0, character: 0}, end: {line: 0, character: 0}
                     }
                 };
             }
@@ -700,12 +700,12 @@ function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Pos
         if (exec_result) {
             let target = exec_result[1]
             if (!target.startsWith("/")) {
-                let inner = path.resolve(path.dirname(getFileRelativePath(document.uri)), target)
+                let inner = path.resolve(projectFolder, path.dirname(getFileRelativePath(document.uri)), target)
                 if (fs.existsSync(inner)) {
                     return {
-                        uri: path.resolve(projectFolder, inner),
+                        uri: inner,
                         range: {
-                            start: { line: 0, character: 0 }, end: { line: 0, character: 0 }
+                            start: {line: 0, character: 0}, end: {line: 0, character: 0}
                         }
                     };
                 }
@@ -714,7 +714,7 @@ function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Pos
                     return {
                         uri: path.resolve(projectFolder, inner),
                         range: {
-                            start: { line: 0, character: 0 }, end: { line: 0, character: 0 }
+                            start: {line: 0, character: 0}, end: {line: 0, character: 0}
                         }
                     };
                 }
@@ -725,7 +725,7 @@ function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Pos
                 return {
                     uri: path.resolve(projectFolder, target),
                     range: {
-                        start: { line: 0, character: 0 }, end: { line: 0, character: 0 }
+                        start: {line: 0, character: 0}, end: {line: 0, character: 0}
                     }
                 };
 
@@ -740,7 +740,7 @@ function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Pos
         return {
             uri: path.resolve(projectFolder, target),
             range: {
-                start: { line: 0, character: 0 }, end: { line: 0, character: 0 }
+                start: {line: 0, character: 0}, end: {line: 0, character: 0}
             }
         };
     }
@@ -759,8 +759,8 @@ function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Pos
             return {
                 uri: path.resolve(projectFolder, variable.filename),
                 range: {
-                    start: { line: variable.line - 1, character: 0 },
-                    end: { line: variable.line - 1, character: 0 }
+                    start: {line: variable.line - 1, character: 0},
+                    end: {line: variable.line - 1, character: 0}
                 }
             };
         }
@@ -802,8 +802,8 @@ function provideDocumentSymbols(document: cocNvim.TextDocument, token: cocNvim.C
                     name: arg,
                     detail: arg,
                     kind: vslp.SymbolKind.Variable,
-                    range: { start: { line: define.line - 1, character: 0 }, end: { line: define.line - 1, character: 0 } },
-                    selectionRange: { start: { line: define.line - 1, character: 0 }, end: { line: define.line - 1, character: 0 } },
+                    range: {start: {line: define.line - 1, character: 0}, end: {line: define.line - 1, character: 0}},
+                    selectionRange: {start: {line: define.line - 1, character: 0}, end: {line: define.line - 1, character: 0}},
                 });
             }
         }
@@ -812,8 +812,8 @@ function provideDocumentSymbols(document: cocNvim.TextDocument, token: cocNvim.C
             name: define.name,
             detail: define.detail,
             kind: vslp.SymbolKind.Constant,
-            range: { start: { line: define.line - 1, character: 0 }, end: { line: define.line - 1, character: 0 } },
-            selectionRange: { start: { line: define.line - 1, character: 0 }, end: { line: define.line - 1, character: 0 } },
+            range: {start: {line: define.line - 1, character: 0}, end: {line: define.line - 1, character: 0}},
+            selectionRange: {start: {line: define.line - 1, character: 0}, end: {line: define.line - 1, character: 0}},
             children: child,
         });
     }
@@ -822,8 +822,8 @@ function provideDocumentSymbols(document: cocNvim.TextDocument, token: cocNvim.C
             name: variable.name,
             detail: variable.detail,
             kind: vslp.SymbolKind.Variable,
-            range: { start: { line: variable.line - 1, character: 0 }, end: { line: variable.line - 1, character: 0 } },
-            selectionRange: { start: { line: variable.line - 1, character: 0 }, end: { line: variable.line - 1, character: 0 } },
+            range: {start: {line: variable.line - 1, character: 0}, end: {line: variable.line - 1, character: 0}},
+            selectionRange: {start: {line: variable.line - 1, character: 0}, end: {line: variable.line - 1, character: 0}},
         });
     }
 
@@ -835,8 +835,8 @@ function provideDocumentSymbols(document: cocNvim.TextDocument, token: cocNvim.C
                     name: arg,
                     detail: arg,
                     kind: vslp.SymbolKind.Variable,
-                    range: { start: { line: func.line - 1, character: 0 }, end: { line: func.line - 1, character: 0 } },
-                    selectionRange: { start: { line: func.line - 1, character: 0 }, end: { line: func.line - 1, character: 0 } },
+                    range: {start: {line: func.line - 1, character: 0}, end: {line: func.line - 1, character: 0}},
+                    selectionRange: {start: {line: func.line - 1, character: 0}, end: {line: func.line - 1, character: 0}},
                 });
             }
         }
@@ -844,8 +844,8 @@ function provideDocumentSymbols(document: cocNvim.TextDocument, token: cocNvim.C
             name: func.name,
             detail: func.detail,
             kind: vslp.SymbolKind.Function,
-            range: { start: { line: func.line - 1, character: 0 }, end: { line: func.line - 1, character: 0 } },
-            selectionRange: { start: { line: func.line - 1, character: 0 }, end: { line: func.line - 1, character: 0 } },
+            range: {start: {line: func.line - 1, character: 0}, end: {line: func.line - 1, character: 0}},
+            selectionRange: {start: {line: func.line - 1, character: 0}, end: {line: func.line - 1, character: 0}},
             children: child,
         });
     }
@@ -855,7 +855,7 @@ function provideDocumentSymbols(document: cocNvim.TextDocument, token: cocNvim.C
 export async function activate(context: cocNvim.ExtensionContext): Promise<void> {
     logger = context.logger;
     InitProjectFolder();
-    context.subscriptions.push(cocNvim.languages.registerCompletionItemProvider('coc-lpcd', 'LPC', 'lpc', { provideCompletionItems }, ['/', '>', '<']));
-    context.subscriptions.push(cocNvim.languages.registerDefinitionProvider([{ language: 'lpc' }], { provideDefinition }));
-    context.subscriptions.push(cocNvim.languages.registerDocumentSymbolProvider([{ language: "lpc" }], { provideDocumentSymbols }));
+    context.subscriptions.push(cocNvim.languages.registerCompletionItemProvider('coc-lpcd', 'LPC', 'lpc', {provideCompletionItems}, ['/', '>', '<']));
+    context.subscriptions.push(cocNvim.languages.registerDefinitionProvider([{language: 'lpc'}], {provideDefinition}));
+    context.subscriptions.push(cocNvim.languages.registerDocumentSymbolProvider([{language: "lpc"}], {provideDocumentSymbols}));
 }
