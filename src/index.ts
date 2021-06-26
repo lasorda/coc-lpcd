@@ -7,7 +7,7 @@ import * as vslp from "vscode-languageserver-protocol";
 var sscanf = require('sscanf');
 var uri2path = require('file-uri-to-path');
 
-const cocLpcConfig = cocNvim.workspace.getConfiguration('coc-lpc');
+const cocLpcConfig = cocNvim.workspace.getConfiguration('coc-lpcd');
 const workspaceStr = cocLpcConfig.get<string>("workspace", "newtxii");
 const complieCommand = cocLpcConfig.get<string>("complie", "lpc_compile");
 const efuncObjects = cocLpcConfig.get<Array<string>>('efunc', ["/etc/efun_define.c", "/sys/object/simul_efun.c"]);
@@ -28,11 +28,12 @@ function getFileRelativePath(uri: string): string {
 function InitProjectFolder() {
     let curPath = cocNvim.workspace.cwd;
     let pos = curPath.lastIndexOf(workspaceStr);
-
+    
     if (pos >= 0) {
         projectFolder = curPath.slice(0, pos + `${workspaceStr}/`.length);
         inc = path.resolve(projectFolder, cocLpcConfig.get<string>('include', "inc"));
     }
+    debug(`coc-lpcd init with workspace:${workspaceStr} complie:${complieCommand} include:${inc} efunc:${efuncObjects}`)
 };
 
 function complie(filename: string): Boolean {
