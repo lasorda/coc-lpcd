@@ -1,6 +1,6 @@
 {
   "name": "coc-lpcd",
-  "version": "0.0.15",
+  "version": "0.0.17",
   "description": "parse lpc symbol position and define",
   "author": "lasorda <337447247@qq.com>",
   "license": "MIT",
@@ -59,7 +59,7 @@
         },
         "coc-lpcd.complie": {
           "type": "string",
-          "default": "lpc_complie",
+          "default": "lpc_compile",
           "description": "lpc_complie test.c at lib generate symbol info at lib/.symbol, return 0 for succ"
         },
         "coc-lpcd.efunc": {
