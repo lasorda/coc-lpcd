@@ -853,8 +853,8 @@ function provideDocumentSymbols(document: cocNvim.TextDocument, token: cocNvim.C
                     name: arg,
                     detail: arg,
                     kind: vslp.SymbolKind.Variable,
-                    range: getRangeofWordInFileLine(filename, func.line - 1, func.name),
-                    selectionRange: getRangeofWordInFileLine(filename, func.line - 1, func.name),
+                    range: getRangeofWordInFileLine(filename, func.line - 1, arg),
+                    selectionRange: getRangeofWordInFileLine(filename, func.line - 1, arg),
                 });
             }
         }
