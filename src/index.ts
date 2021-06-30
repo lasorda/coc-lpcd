@@ -481,7 +481,7 @@ function provideCompletionItems(document: cocNvim.TextDocument, position: cocNvi
     let filename = getFileRelativePath(document.uri)
 
     if (filename in completionCache && filename in completionCacheTime
-        && Date.now() / 1000 - completionCacheTime[filename] < 1) {
+        && Date.now() / 1000 - completionCacheTime[filename] < 5) {
         return completionCache[filename];
     }
 
