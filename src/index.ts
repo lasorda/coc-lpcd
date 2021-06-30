@@ -28,7 +28,7 @@ function getFileRelativePath(uri: string): string {
 function InitProjectFolder() {
     let curPath = cocNvim.workspace.cwd;
     let pos = curPath.lastIndexOf(workspaceStr);
-    
+
     if (pos >= 0) {
         projectFolder = curPath.slice(0, pos + `${workspaceStr}/`.length);
         inc = path.resolve(projectFolder, cocLpcConfig.get<string>('include', "inc"));
@@ -808,10 +808,23 @@ function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Pos
     return null;
 }
 
+var documentSymbolCache: {[key: string]: cocNvim.DocumentSymbol[]} = {}
+var documentSymbolCacheTime: {[key: string]: number} = {}
+
 function provideDocumentSymbols(document: cocNvim.TextDocument, token: cocNvim.CancellationToken): cocNvim.DocumentSymbol[] {
     let filename = getFileRelativePath(document.uri);
 
+    if (filename in documentSymbolCacheTime && (Date.now() / 1000 - documentSymbolCacheTime[filename] < 2)) {
+        return documentSymbolCache[filename];
+    }
+
     let output: cocNvim.DocumentSymbol[] = [];
+
+    if (!complie(filename)) {
+        if (filename in documentSymbolCache) return documentSymbolCache[filename];
+        return output;
+    }
+
     for (const define of getMacroDefine(filename, -1, false)) {
         let child: cocNvim.DocumentSymbol[] = [];
         if (define.args) {
@@ -867,6 +880,8 @@ function provideDocumentSymbols(document: cocNvim.TextDocument, token: cocNvim.C
             children: child,
         });
     }
+    documentSymbolCache[filename] = output;
+    documentSymbolCacheTime[filename] = Date.now() / 1000;
     return output;
 }
 
