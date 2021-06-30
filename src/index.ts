@@ -243,7 +243,7 @@ var fileSymbolCacheTime: {[key: string]: number} = {}
 
 function generateFileSymbol(filename: string): FileSymbol {
     let fileSymbol: FileSymbol = {defined: [], include: [], variable: [], func: [], childFileSymbol: {}, lineno: 0}
-    if (filename in fileSymbolCacheTime && (Date.now() / 1000 - fileSymbolCacheTime[filename] < 2)) {
+    if (filename in fileSymbolCacheTime && (Date.now() / 1000 - fileSymbolCacheTime[filename] < 1)) {
         return fileSymbolCache[filename];
     }
 
@@ -393,7 +393,7 @@ function getLine(document: cocNvim.TextDocument, line: number): string {
 var completionCache: {[key: string]: cocNvim.CompletionItem[]} = {}
 var completionCacheTime: {[key: string]: number} = {}
 
-function provideCompletionItems(document: cocNvim.TextDocument, position: cocNvim.Position, token: cocNvim.CancellationToken, context?: cocNvim.CompletionContext): cocNvim.CompletionItem[] {
+function provideCompletionItems(document: cocNvim.TextDocument, position: cocNvim.Position): cocNvim.CompletionItem[] {
     const line = getLine(document, position.line)
     const lineText = line.substring(0, position.character);
     let reg: RegExp;
@@ -481,7 +481,7 @@ function provideCompletionItems(document: cocNvim.TextDocument, position: cocNvi
     let filename = getFileRelativePath(document.uri)
 
     if (filename in completionCache && filename in completionCacheTime
-        && Date.now() / 1000 - completionCacheTime[filename] < 5) {
+        && Date.now() / 1000 - completionCacheTime[filename] < 1) {
         return completionCache[filename];
     }
 
@@ -618,16 +618,27 @@ function searchInLine(line: string, word: string): number {
     return 0;
 }
 
+var fileContextCache: {[key: string]: string[]} = {}
+var fileContextCacheTime: {[key: string]: number} = {}
+
 function getRangeofWordInFileLine(filename: string, line: number, word: string): cocNvim.Range {
     let res: cocNvim.Range = {start: {line: line, character: 0}, end: {line: line, character: 0}};
-    if (fs.existsSync(filename)) {
-        let filelines = fs.readFileSync(filename).toString().split("\n");
+    let filelines: string[] = []
 
-        if (line < filelines.length) {
-            let linePos = searchInLine(filelines[line], word);
-            res.start.character = linePos;
-            res.start.character = linePos;
+    if (fs.existsSync(filename)) {
+        if (filename in fileContextCache && (Date.now() / 1000 - fileContextCacheTime[filename] < 1)) {
+            filelines = fileContextCache[filename]
         }
+        else {
+            filelines = fs.readFileSync(filename).toString().split("\n");
+            fileContextCache[filename] = filelines;
+            fileContextCacheTime[filename] = Date.now() / 1000;
+        }
+    }
+    if (line < filelines.length && filename.length > 0) {
+        let linePos = searchInLine(filelines[line], word);
+        res.start.character = linePos;
+        res.start.character = linePos;
     }
     return res;
 }
@@ -808,22 +819,10 @@ function provideDefinition(document: cocNvim.TextDocument, position: cocNvim.Pos
     return null;
 }
 
-var documentSymbolCache: {[key: string]: cocNvim.DocumentSymbol[]} = {}
-var documentSymbolCacheTime: {[key: string]: number} = {}
-
-function provideDocumentSymbols(document: cocNvim.TextDocument, token: cocNvim.CancellationToken): cocNvim.DocumentSymbol[] {
+function provideDocumentSymbols(document: cocNvim.TextDocument): cocNvim.DocumentSymbol[] {
     let filename = getFileRelativePath(document.uri);
 
-    if (filename in documentSymbolCacheTime && (Date.now() / 1000 - documentSymbolCacheTime[filename] < 2)) {
-        return documentSymbolCache[filename];
-    }
-
     let output: cocNvim.DocumentSymbol[] = [];
-
-    if (!complie(filename)) {
-        if (filename in documentSymbolCache) return documentSymbolCache[filename];
-        return output;
-    }
 
     for (const define of getMacroDefine(filename, -1, false)) {
         let child: cocNvim.DocumentSymbol[] = [];
@@ -880,8 +879,6 @@ function provideDocumentSymbols(document: cocNvim.TextDocument, token: cocNvim.C
             children: child,
         });
     }
-    documentSymbolCache[filename] = output;
-    documentSymbolCacheTime[filename] = Date.now() / 1000;
     return output;
 }
 
