@@ -603,10 +603,6 @@ function getWordRangeAtPosition(document: cocNvim.TextDocument, position: cocNvi
     return {start: {line: lineNumber, character: left}, end: {line: lineNumber, character: right}};
 }
 
-function getActiveTextEditorData(document: cocNvim.TextDocument): string {
-    return cocNvim.workspace.getDocument(document.uri).content;
-};
-
 function searchInLine(line: string, word: string): number {
     let reg = new RegExp(`\\b${word}\\b`)
     if (reg.test(line)) {
