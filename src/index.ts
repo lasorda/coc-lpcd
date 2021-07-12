@@ -822,17 +822,17 @@ function provideDocumentSymbols(document: cocNvim.TextDocument): cocNvim.Documen
 
     for (const define of getMacroDefine(filename, -1, false)) {
         let child: cocNvim.DocumentSymbol[] = [];
-        if (define.args) {
-            for (const arg of define.args) {
-                child.push({
-                    name: arg,
-                    detail: arg,
-                    kind: vslp.SymbolKind.Variable,
-                    range: getRangeofWordInFileLine(filename, define.line - 1, define.name),
-                    selectionRange: getRangeofWordInFileLine(filename, define.line - 1, define.name),
-                });
-            }
-        }
+        // if (define.args) {
+        //     for (const arg of define.args) {
+        //         child.push({
+        //             name: arg,
+        //             detail: arg,
+        //             kind: vslp.SymbolKind.Variable,
+        //             range: getRangeofWordInFileLine(filename, define.line - 1, define.name),
+        //             selectionRange: getRangeofWordInFileLine(filename, define.line - 1, define.name),
+        //         });
+        //     }
+        // }
 
         output.push({
             name: define.name,
@@ -855,17 +855,17 @@ function provideDocumentSymbols(document: cocNvim.TextDocument): cocNvim.Documen
 
     for (const func of getDefineFunction(filename, -1, false)) {
         let child: cocNvim.DocumentSymbol[] = [];
-        if (func.args) {
-            for (const arg of func.args) {
-                child.push({
-                    name: arg,
-                    detail: arg,
-                    kind: vslp.SymbolKind.Variable,
-                    range: getRangeofWordInFileLine(filename, func.line - 1, arg),
-                    selectionRange: getRangeofWordInFileLine(filename, func.line - 1, arg),
-                });
-            }
-        }
+        // if (func.args) {
+        //     for (const arg of func.args) {
+        //         child.push({
+        //             name: arg,
+        //             detail: arg,
+        //             kind: vslp.SymbolKind.Variable,
+        //             range: getRangeofWordInFileLine(filename, func.line - 1, arg),
+        //             selectionRange: getRangeofWordInFileLine(filename, func.line - 1, arg),
+        //         });
+        //     }
+        // }
         output.push({
             name: func.name,
             detail: func.detail,
