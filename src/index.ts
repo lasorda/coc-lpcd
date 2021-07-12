@@ -507,7 +507,7 @@ function provideCompletionItems(document: cocNvim.TextDocument, position: cocNvi
         if (define.args) {
             res.push({
                 label: define.name,
-                kind: cocNvim.CompletionItemKind.Constant,
+                kind: cocNvim.CompletionItemKind.Function,
                 insertText: define.name + makeSnippetPlaceHolderStr(define.args || []),
                 insertTextFormat: cocNvim.InsertTextFormat.Snippet,
             })
