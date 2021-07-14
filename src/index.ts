@@ -821,26 +821,12 @@ function provideDocumentSymbols(document: cocNvim.TextDocument): cocNvim.Documen
     let output: cocNvim.DocumentSymbol[] = [];
 
     for (const define of getMacroDefine(filename, -1, false)) {
-        let child: cocNvim.DocumentSymbol[] = [];
-        // if (define.args) {
-        //     for (const arg of define.args) {
-        //         child.push({
-        //             name: arg,
-        //             detail: arg,
-        //             kind: vslp.SymbolKind.Variable,
-        //             range: getRangeofWordInFileLine(filename, define.line - 1, define.name),
-        //             selectionRange: getRangeofWordInFileLine(filename, define.line - 1, define.name),
-        //         });
-        //     }
-        // }
-
         output.push({
             name: define.name,
             detail: define.detail,
             kind: vslp.SymbolKind.Constant,
             range: getRangeofWordInFileLine(filename, define.line - 1, define.name),
             selectionRange: getRangeofWordInFileLine(filename, define.line - 1, define.name),
-            children: child,
         });
     }
     for (const variable of getGlobalVariable(filename, -1, false)) {
@@ -854,25 +840,12 @@ function provideDocumentSymbols(document: cocNvim.TextDocument): cocNvim.Documen
     }
 
     for (const func of getDefineFunction(filename, -1, false)) {
-        let child: cocNvim.DocumentSymbol[] = [];
-        // if (func.args) {
-        //     for (const arg of func.args) {
-        //         child.push({
-        //             name: arg,
-        //             detail: arg,
-        //             kind: vslp.SymbolKind.Variable,
-        //             range: getRangeofWordInFileLine(filename, func.line - 1, arg),
-        //             selectionRange: getRangeofWordInFileLine(filename, func.line - 1, arg),
-        //         });
-        //     }
-        // }
         output.push({
             name: func.name,
             detail: func.detail,
             kind: vslp.SymbolKind.Function,
             range: getRangeofWordInFileLine(filename, func.line - 1, func.name),
             selectionRange: getRangeofWordInFileLine(filename, func.line - 1, func.name),
-            children: child,
         });
     }
     return output;
