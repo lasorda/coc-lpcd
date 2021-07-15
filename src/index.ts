@@ -161,7 +161,7 @@ function parse(filename: string, symbolInfo: string) {
                     if (hasArgs) {
                         let right = hasArgs;
                         while (right < define.length && define[right] != ')') right++;
-                        let args = define.substring(hasArgs + 1, right).replace(',', ' ').split(' ');
+                        let args = define.substring(hasArgs + 1, right).replace(/,/gi, ' ').split(' ');
                         args = args.filter(function (value: string) {
                             return value.length > 0;
                         })
