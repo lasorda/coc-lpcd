@@ -1,6 +1,6 @@
 {
   "name": "coc-lpcd",
-  "version": "0.0.24",
+  "version": "0.0.25",
   "description": "parse lpc symbol position and define",
   "author": "lasorda <337447247@qq.com>",
   "license": "MIT",
@@ -35,9 +35,7 @@
     "eslint-plugin-prettier": "^3.1.4",
     "prettier": "^2.2.0",
     "rimraf": "^3.0.2",
-    "sscanf": "^0.8.0",
-    "typescript": "^4.1.2",
-    "vscode-languageserver-protocol": "^3.16.0"
+    "typescript": "^4.1.2"
   },
   "activationEvents": [
     "*"
@@ -85,6 +83,8 @@
     ]
   },
   "dependencies": {
-    "file-uri-to-path": "^2.0.0"
+    "file-uri-to-path": "^2.0.0",
+    "scanf": "^1.1.2",
+    "vscode-languageserver-protocol": "^3.16.0"
   }
 }
