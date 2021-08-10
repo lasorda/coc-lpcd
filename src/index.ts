@@ -10,7 +10,7 @@ import uri2path from 'file-uri-to-path';
 const cocLpcConfig = cocNvim.workspace.getConfiguration('coc-lpcd');
 const workspaceStr = cocLpcConfig.get<string>('workspace', 'newtxii');
 const complieCommand = cocLpcConfig.get<string>('complie', 'lpc_compile');
-const efuncObjects = cocLpcConfig.get<Array<string>>('efunc', ['/etc/efun_define.c', '/sys/object/simul_efun.c']);
+const efuncObjects = cocLpcConfig.get<Array<string>>('efunc', ['/sys/object/simul_efun.c', '/etc/efun_define.c']);
 
 let projectFolder = '';
 let inc = '';
