@@ -718,6 +718,7 @@ function provideDefinition(
                 };
             }
         }
+        return;
     }
 
     // #include <
