@@ -490,6 +490,7 @@ function provideCompletionItems(document: cocNvim.TextDocument, position: cocNvi
                 insertTextFormat: cocNvim.InsertTextFormat.Snippet,
             });
         }
+        debug("completion with object call", file);
         return res;
     }
 
@@ -503,6 +504,7 @@ function provideCompletionItems(document: cocNvim.TextDocument, position: cocNvi
         filename in completionCacheTime &&
         Date.now() / 1000 - completionCacheTime[filename] < 5
     ) {
+        debug("completion with this file cache", filename)
         return completionCache[filename];
     }
 
@@ -660,7 +662,7 @@ function getRangeofWordInFileLine(filename: string, line: number, word: string):
     if (line < filelines.length && filename.length > 0) {
         const linePos = searchInLine(filelines[line], word);
         res.start.character = linePos;
-        res.start.character = linePos;
+        res.end.character = linePos + word.length;
     }
     return res;
 }
