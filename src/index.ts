@@ -40,13 +40,13 @@ function complie(filename: string): boolean {
     try {
         child_process.execSync(
             `cd ${projectFolder}; mkdir -p log && touch log/debug.log`,
-            { shell: '/bin/bash', stdio: 'pipe' }
+            {shell: '/bin/bash', stdio: 'pipe'}
         );
 
         // too ugly
         child_process.execSync(
             `cd ${projectFolder}; mv log/debug.log log/bak.log; ${complieCommand} ${filename}; mv log/debug.log log/complie.log ; mv log/bak.log log/debug.log`,
-            { shell: '/bin/bash', stdio: 'pipe' }
+            {shell: '/bin/bash', stdio: 'pipe'}
         );
         return true;
     } catch (e) {
@@ -101,7 +101,7 @@ interface FileSymbol {
     include: ESymbol[];
     variable: ESymbol[];
     func: ESymbol[];
-    childFileSymbol: { [key: string]: FileSymbol };
+    childFileSymbol: {[key: string]: FileSymbol};
 }
 
 function parse(filename: string, symbolInfo: string) {
@@ -257,11 +257,11 @@ function parse(filename: string, symbolInfo: string) {
     return fileSymbol;
 }
 
-const fileSymbolCache: { [key: string]: FileSymbol } = {};
-const fileSymbolCacheTime: { [key: string]: number } = {};
+const fileSymbolCache: {[key: string]: FileSymbol} = {};
+const fileSymbolCacheTime: {[key: string]: number} = {};
 
 function generateFileSymbol(filename: string): FileSymbol {
-    let fileSymbol: FileSymbol = { defined: [], include: [], variable: [], func: [], childFileSymbol: {}, lineno: 0 };
+    let fileSymbol: FileSymbol = {defined: [], include: [], variable: [], func: [], childFileSymbol: {}, lineno: 0};
     if (filename in fileSymbolCacheTime && Date.now() / 1000 - fileSymbolCacheTime[filename] < 1) {
         return fileSymbolCache[filename];
     }
@@ -372,7 +372,7 @@ function getLocalVariable(filename: string, lineAt: number): ESymbol[] {
     if (lastFunction && lastFunction.args && lastFunction.op) {
         for (let index = 0; index < lastFunction.args.length; index++) {
             const arg = lastFunction.args[index];
-            localArgs.push({ name: arg, line: lastFunction.line, filename: filename });
+            localArgs.push({name: arg, line: lastFunction.line, filename: filename});
         }
         for (let index = 0; index < lastFunction.op.length; index++) {
             const lineSymbol = lastFunction.op[index];
@@ -406,11 +406,11 @@ function getLocalVariable(filename: string, lineAt: number): ESymbol[] {
 }
 
 function getLine(document: cocNvim.TextDocument, line: number): string {
-    return document.getText({ start: { line: line - 1, character: 100000 }, end: { line: line, character: 100000 } });
+    return document.getText({start: {line: line - 1, character: 100000}, end: {line: line, character: 100000}});
 }
 
-const completionCache: { [key: string]: cocNvim.CompletionItem[] } = {};
-const completionCacheTime: { [key: string]: number } = {};
+const completionCache: {[key: string]: cocNvim.CompletionItem[]} = {};
+const completionCacheTime: {[key: string]: number} = {};
 
 function provideCompletionItems(document: cocNvim.TextDocument, position: cocNvim.Position): cocNvim.CompletionItem[] {
     const line = getLine(document, position.line);
@@ -589,7 +589,7 @@ function getFileAndDir(dirPath: string): cocNvim.CompletionItem[] {
         const isDir = stats.isDirectory();
         if (isFile && (filedir.search('\\.c') != -1 || filedir.search('\\.h') != -1)) {
             filedir = filedir.replace(dirPath, '').replace(/\\/g, '/').substr(1);
-            output.push({ label: filedir, kind: cocNvim.CompletionItemKind.File, insertText: filedir });
+            output.push({label: filedir, kind: cocNvim.CompletionItemKind.File, insertText: filedir});
         } else if (isDir) {
             filedir = filedir.replace(dirPath, '').replace(/\\/g, '/').substr(1) + '/';
             if (filedir.substring(0, 1) == '.') continue;
@@ -629,7 +629,7 @@ function getWordRangeAtPosition(document: cocNvim.TextDocument, position: cocNvi
     )
         right++;
 
-    return { start: { line: lineNumber, character: left }, end: { line: lineNumber, character: right } };
+    return {start: {line: lineNumber, character: left}, end: {line: lineNumber, character: right}};
 }
 
 function searchInLine(line: string, word: string): number {
@@ -643,11 +643,11 @@ function searchInLine(line: string, word: string): number {
     return 0;
 }
 
-const fileContextCache: { [key: string]: string[] } = {};
-const fileContextCacheTime: { [key: string]: number } = {};
+const fileContextCache: {[key: string]: string[]} = {};
+const fileContextCacheTime: {[key: string]: number} = {};
 
 function getRangeofWordInFileLine(filename: string, line: number, word: string): cocNvim.Range {
-    const res: cocNvim.Range = { start: { line: line, character: 0 }, end: { line: line, character: 0 } };
+    const res: cocNvim.Range = {start: {line: line, character: 0}, end: {line: line, character: 0}};
     let filelines: string[] = [];
 
     if (fs.existsSync(filename)) {
@@ -685,48 +685,52 @@ function provideDefinition(
     }
 
     // -> call jump
-    let reg = new RegExp(`([\\w\\/\\"\\.]+|this_object\\(\\))->${word.replace(/\//g, '\\/')}\\(`);
-    const exec_result = reg.exec(lineText);
-    if (
-        exec_result != null &&
-        exec_result[1] != null &&
-        exec_result['index'] + exec_result[1].length + 2 <= position.character &&
-        exec_result['index'] + exec_result[1].length + word.length >= position.character - 1
-    ) {
-        let from = '';
+    let reg = new RegExp(`([\\w\\/\\"\\.]+|this_object\\(\\))->${word.replace(/\//g, '\\/')}\\(`, 'g');
+    let exec_result = reg.exec(lineText);
+    do {
+        if (
+            exec_result != null &&
+            exec_result[1] != null &&
+            exec_result['index'] + exec_result[1].length + 2 <= position.character &&
+            exec_result['index'] + exec_result[1].length + word.length >= position.character - 1
+        ) {
+            let from = '';
 
-        if (exec_result[1] == 'this_object()') {
-            from = `"${getFileRelativePath(document.uri)}"`;
-        } else {
-            from = exec_result[1];
-        }
+            if (exec_result[1] == 'this_object()') {
+                from = `"${getFileRelativePath(document.uri)}"`;
+            } else {
+                from = exec_result[1];
+            }
 
-        if (!from.startsWith('"')) {
-            const define = getMacroDefine(filename, position.line, true);
-            for (let index = 0; index < define.length; index++) {
-                const def = define[index];
-                if (def.name == from && def.detail) {
-                    from = def.detail;
-                    break;
+            if (!from.startsWith('"')) {
+                const define = getMacroDefine(filename, position.line, true);
+                for (let index = 0; index < define.length; index++) {
+                    const def = define[index];
+                    if (def.name == from && def.detail) {
+                        from = def.detail;
+                        break;
+                    }
                 }
             }
+
+            if (!from.startsWith('"') || !from.endsWith('"')) return;
+            from = prettyFilename(from.substring(1, from.length - 1));
+            if (!fs.existsSync(path.resolve(projectFolder, from))) return;
+            const definefunc = getDefineFunction(from, -1, true);
+            for (let index = 0; index < definefunc.length; index++) {
+                const func = definefunc[index];
+                if (func.name == word) {
+                    return {
+                        uri: path.resolve(projectFolder, func.filename),
+                        range: getRangeofWordInFileLine(path.resolve(projectFolder, func.filename), func.line - 1, func.name),
+                    };
+                }
+            }
+            return;
         }
 
-        if (!from.startsWith('"') || !from.endsWith('"')) return;
-        from = prettyFilename(from.substring(1, from.length - 1));
-        if (!fs.existsSync(path.resolve(projectFolder, from))) return;
-        const definefunc = getDefineFunction(from, -1, true);
-        for (let index = 0; index < definefunc.length; index++) {
-            const func = definefunc[index];
-            if (func.name == word) {
-                return {
-                    uri: path.resolve(projectFolder, func.filename),
-                    range: getRangeofWordInFileLine(path.resolve(projectFolder, func.filename), func.line - 1, func.name),
-                };
-            }
-        }
-        return;
-    }
+        exec_result = reg.exec(lineText);
+    } while (exec_result != null);
 
     // #include <
     reg = /#include\s+?<([\w|/|.]+)*?>(\s+)?/;
@@ -738,8 +742,8 @@ function provideDefinition(
                 return {
                     uri: uri,
                     range: {
-                        start: { line: 0, character: 0 },
-                        end: { line: 0, character: 0 },
+                        start: {line: 0, character: 0},
+                        end: {line: 0, character: 0},
                     },
                 };
             }
@@ -760,8 +764,8 @@ function provideDefinition(
                     return {
                         uri: inner,
                         range: {
-                            start: { line: 0, character: 0 },
-                            end: { line: 0, character: 0 },
+                            start: {line: 0, character: 0},
+                            end: {line: 0, character: 0},
                         },
                     };
                 }
@@ -770,8 +774,8 @@ function provideDefinition(
                     return {
                         uri: path.resolve(projectFolder, inner),
                         range: {
-                            start: { line: 0, character: 0 },
-                            end: { line: 0, character: 0 },
+                            start: {line: 0, character: 0},
+                            end: {line: 0, character: 0},
                         },
                     };
                 }
@@ -781,8 +785,8 @@ function provideDefinition(
                 return {
                     uri: path.resolve(projectFolder, target),
                     range: {
-                        start: { line: 0, character: 0 },
-                        end: { line: 0, character: 0 },
+                        start: {line: 0, character: 0},
+                        end: {line: 0, character: 0},
                     },
                 };
             }
@@ -796,8 +800,8 @@ function provideDefinition(
         return {
             uri: path.resolve(projectFolder, target),
             range: {
-                start: { line: 0, character: 0 },
-                end: { line: 0, character: 0 },
+                start: {line: 0, character: 0},
+                end: {line: 0, character: 0},
             },
         };
     }
@@ -896,16 +900,16 @@ export async function activate(context: cocNvim.ExtensionContext): Promise<void>
     logger = context.logger;
     InitProjectFolder();
     context.subscriptions.push(
-        cocNvim.languages.registerCompletionItemProvider('coc-lpcd', 'LPC', 'lpc', { provideCompletionItems }, [
+        cocNvim.languages.registerCompletionItemProvider('coc-lpcd', 'LPC', 'lpc', {provideCompletionItems}, [
             '/',
             '>',
             '<',
         ])
     );
     context.subscriptions.push(
-        cocNvim.languages.registerDefinitionProvider([{ language: 'lpc' }], { provideDefinition })
+        cocNvim.languages.registerDefinitionProvider([{language: 'lpc'}], {provideDefinition})
     );
     context.subscriptions.push(
-        cocNvim.languages.registerDocumentSymbolProvider([{ language: 'lpc' }], { provideDocumentSymbols })
+        cocNvim.languages.registerDocumentSymbolProvider([{language: 'lpc'}], {provideDocumentSymbols})
     );
 }
