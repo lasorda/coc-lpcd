@@ -7,10 +7,10 @@ import * as vslp from 'vscode-languageserver-protocol';
 import * as scanf from 'scanf';
 import uri2path from 'file-uri-to-path';
 
-const cocLpcConfig = cocNvim.workspace.getConfiguration('coc-lpcd');
-const workspaceStr = cocLpcConfig.get<string>('workspace', 'newtxii');
-const complieCommand = cocLpcConfig.get<string>('complie', 'lpc_compile');
-const efuncObjects = cocLpcConfig.get<Array<string>>('efunc', ['/sys/object/simul_efun.c', '/etc/efun_define.c']);
+const cocLpcdConfig = cocNvim.workspace.getConfiguration('coc-lpcd');
+const workspaceStr = cocLpcdConfig.get<string>('workspace', 'newtxii');
+const complieCommand = cocLpcdConfig.get<string>('complie', 'lpc_compile');
+const efuncObjects = cocLpcdConfig.get<Array<string>>('efunc', ['/sys/object/simul_efun.c', '/etc/efun_define.c']);
 
 let projectFolder = '';
 let inc = '';
@@ -31,7 +31,7 @@ function InitProjectFolder() {
 
     if (pos >= 0) {
         projectFolder = curPath.slice(0, pos + `${workspaceStr}/`.length);
-        inc = path.resolve(projectFolder, cocLpcConfig.get<string>('include', 'inc'));
+        inc = path.resolve(projectFolder, cocLpcdConfig.get<string>('include', 'inc'));
     }
     debug(`coc-lpcd init with workspace:${workspaceStr} complie:${complieCommand} include:${inc} efunc:${efuncObjects}`);
 }
@@ -490,7 +490,6 @@ function provideCompletionItems(document: cocNvim.TextDocument, position: cocNvi
                 insertTextFormat: cocNvim.InsertTextFormat.Snippet,
             });
         }
-        debug("completion with object call", file);
         return res;
     }
 
@@ -504,7 +503,6 @@ function provideCompletionItems(document: cocNvim.TextDocument, position: cocNvi
         filename in completionCacheTime &&
         Date.now() / 1000 - completionCacheTime[filename] < 5
     ) {
-        debug("completion with this file cache", filename)
         return completionCache[filename];
     }
 
