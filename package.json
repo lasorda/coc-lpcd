@@ -1,8 +1,8 @@
 {
   "name": "coc-lpcd",
-  "version": "0.0.35",
+  "version": "1.0.0",
   "description": "parse lpc symbol position and define",
-  "author": "lasorda <337447247@qq.com>",
+  "author": "lasorda",
   "license": "MIT",
   "main": "lib/index.js",
   "keywords": [
@@ -75,12 +75,7 @@
         }
       }
     },
-    "commands": [
-      {
-        "command": "coc-lpcd.Command",
-        "title": "coc-lpcd command title"
-      }
-    ]
+    "commands": [ ]
   },
   "dependencies": {
     "file-uri-to-path": "^2.0.0",
