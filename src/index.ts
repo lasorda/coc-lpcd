@@ -322,6 +322,26 @@ function attachComment(fileSymbol: FileSymbol) {
         res.push(proto);
         e.documentation = res.join("\n");
     }
+    for (const e of fileSymbol.defined) {
+        const res: string[] = [];
+
+        let proto = e.name;
+        if (e.args != undefined) {
+            let args = "";
+            for (let index = 0; index < e.args.length; index++) {
+                const arg = e.args[index];
+                if (index > 0) {
+                    args += ', ';
+                }
+                args += arg.trim();
+            }
+            args = '(' + args + ')';
+            proto += args;
+        }
+        res.push(proto);
+        e.documentation = res.join("\n");
+    }
+
 }
 
 const fileSymbolCache: { [key: string]: FileSymbol } = {};
