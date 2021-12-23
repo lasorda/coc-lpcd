@@ -784,6 +784,7 @@ function provideDefinition(
     const lineText = getLine(document, position.line);
     let filename = getFileRelativePath(document.uri);
 
+    hoverSymbol = undefined;
     if (filename.endsWith('.c')) {
         lastdotcfile = filename;
     } else if (filename.endsWith('.h') && lastdotcfile.length) {
@@ -1014,31 +1015,20 @@ function provideHover(
     position: cocNvim.Position,
     token: cocNvim.CancellationToken
 ): cocNvim.ProviderResult<cocNvim.Hover> {
-    hoverSymbol = undefined;
     provideDefinition(document, position);
-    debug(hoverSymbol);
-    if(hoverSymbol && hoverSymbol.documentation) {
-        return { contents: hoverSymbol.documentation};
+    if (hoverSymbol && hoverSymbol.documentation) {
+        return { contents: hoverSymbol.documentation };
     }
 }
 
 export async function activate(context: cocNvim.ExtensionContext): Promise<void> {
     logger = context.logger;
     InitProjectFolder();
+    const selector: cocNvim.DocumentSelector = [{ language: 'lpc' }];
     context.subscriptions.push(
-        cocNvim.languages.registerCompletionItemProvider('coc-lpcd', 'LPC', 'lpc', { provideCompletionItems }, [
-            '/',
-            '>',
-            '<',
-        ])
-    );
-    context.subscriptions.push(
-        cocNvim.languages.registerDefinitionProvider([{ language: 'lpc' }], { provideDefinition })
-    );
-    context.subscriptions.push(
-        cocNvim.languages.registerDocumentSymbolProvider([{ language: 'lpc' }], { provideDocumentSymbols })
-    );
-    context.subscriptions.push(
-        cocNvim.languages.registerHoverProvider([{ language: 'lpc' }], { provideHover })
+        cocNvim.languages.registerCompletionItemProvider('coc-lpcd', 'LPC', 'lpc', { provideCompletionItems }, ['/', '>', '<',]),
+        cocNvim.languages.registerDefinitionProvider(selector, { provideDefinition }),
+        cocNvim.languages.registerDocumentSymbolProvider(selector, { provideDocumentSymbols }),
+        cocNvim.languages.registerHoverProvider(selector, { provideHover }),
     );
 }
