@@ -94,7 +94,7 @@ interface ESymbol {
     args?: string[];
     op?: LineSymbol[];
     detail?: string;
-    documentation?: string;
+    documentation?: cocNvim.MarkupContent;
 }
 
 interface FileSymbol {
@@ -274,13 +274,15 @@ function attachComment(fileSymbol: FileSymbol) {
     }
     let idx = 0;
     const commentIdx: { [key: number]: number[] } = {};
+    const commentIdx2: { [key: number]: number } = {};
 
     while (idx < fileSymbol.comment.length) {
         const allidx: number[] = [idx];
-
+        commentIdx2[fileSymbol.comment[idx].lineno] = idx;
         while (idx + 1 < fileSymbol.comment.length && fileSymbol.comment[idx].lineno + 1 == fileSymbol.comment[idx + 1].lineno) {
             idx++;
             allidx.push(idx);
+            commentIdx2[fileSymbol.comment[idx].lineno] = idx;
         }
         for (const subidx of allidx) {
             commentIdx[fileSymbol.comment[subidx].lineno] = allidx;
@@ -304,7 +306,9 @@ function attachComment(fileSymbol: FileSymbol) {
                 res.push(fileSymbol.comment[idx].detail);
             }
         }
-        res.push('');
+        if (res.length) {
+            res.push('--------------------------------------');
+        }
 
         let proto = e.name;
         if (e.args != undefined) {
@@ -320,7 +324,10 @@ function attachComment(fileSymbol: FileSymbol) {
             proto += args;
         }
         res.push(proto);
-        e.documentation = res.join("\n");
+        e.documentation = {
+            kind: 'plaintext',
+            value: res.join('\n'),
+        };
     }
     for (const e of fileSymbol.defined) {
         const res: string[] = [];
@@ -338,10 +345,18 @@ function attachComment(fileSymbol: FileSymbol) {
             args = '(' + args + ')';
             proto += args;
         }
-        res.push(proto);
-        e.documentation = res.join("\n");
+        if (commentIdx2[e.line]) {
+            res.push(fileSymbol.comment[commentIdx2[e.line]].detail);
+            res.push('--------------------------------------');
+        }
+        if (e.detail) {
+            res.push(`#define ${proto} ${e.detail}`);
+        }
+        e.documentation = {
+            kind: 'plaintext',
+            value: res.join('\n'),
+        };
     }
-
 }
 
 const fileSymbolCache: { [key: string]: FileSymbol } = {};
