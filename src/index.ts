@@ -774,6 +774,7 @@ function getRangeofWordInFileLine(filename: string, line: number, word: string):
 }
 
 let lastdotcfile = '';
+let hoverSymbol: ESymbol | undefined;
 
 function provideDefinition(
     document: cocNvim.TextDocument,
@@ -826,6 +827,7 @@ function provideDefinition(
             for (let index = 0; index < definefunc.length; index++) {
                 const func = definefunc[index];
                 if (func.name == word) {
+                    hoverSymbol = func;
                     return {
                         uri: path.resolve(projectFolder, func.filename),
                         range: getRangeofWordInFileLine(path.resolve(projectFolder, func.filename), func.line - 1, func.name),
@@ -914,6 +916,7 @@ function provideDefinition(
 
     for (const local of getLocalVariable(filename, position.line)) {
         if (local.name == word) {
+            hoverSymbol = local;
             return {
                 uri: document.uri,
                 range: getRangeofWordInFileLine(uri2path(document.uri), local.line - 1, local.name),
@@ -923,6 +926,7 @@ function provideDefinition(
 
     for (const variable of getGlobalVariable(filename, position.line, true)) {
         if (variable.name == word) {
+            hoverSymbol = variable;
             return {
                 uri: path.resolve(projectFolder, variable.filename),
                 range: getRangeofWordInFileLine(
@@ -936,6 +940,7 @@ function provideDefinition(
 
     for (const func of getDefineFunction(filename, position.line, true)) {
         if (func.name == word) {
+            hoverSymbol = func;
             return {
                 uri: path.resolve(projectFolder, func.filename),
                 range: getRangeofWordInFileLine(path.resolve(projectFolder, func.filename), func.line - 1, func.name),
@@ -947,6 +952,7 @@ function provideDefinition(
         const efuncFile = efuncObjects[index];
         for (const func of getDefineFunction(efuncFile, -1, true)) {
             if (func.name == word) {
+                hoverSymbol = func;
                 return {
                     uri: path.resolve(projectFolder, func.filename),
                     range: getRangeofWordInFileLine(path.resolve(projectFolder, func.filename), func.line - 1, func.name),
@@ -957,6 +963,7 @@ function provideDefinition(
 
     for (const define of getMacroDefine(filename, position.line, true)) {
         if (define.name == word) {
+            hoverSymbol = define;
             return {
                 uri: path.resolve(projectFolder, define.filename),
                 range: getRangeofWordInFileLine(path.resolve(projectFolder, define.filename), define.line - 1, define.name),
@@ -1002,6 +1009,19 @@ function provideDocumentSymbols(document: cocNvim.TextDocument): cocNvim.Documen
     return output;
 }
 
+function provideHover(
+    document: cocNvim.TextDocument,
+    position: cocNvim.Position,
+    token: cocNvim.CancellationToken
+): cocNvim.ProviderResult<cocNvim.Hover> {
+    hoverSymbol = undefined;
+    provideDefinition(document, position);
+    debug(hoverSymbol);
+    if(hoverSymbol && hoverSymbol.documentation) {
+        return { contents: hoverSymbol.documentation};
+    }
+}
+
 export async function activate(context: cocNvim.ExtensionContext): Promise<void> {
     logger = context.logger;
     InitProjectFolder();
@@ -1017,5 +1037,8 @@ export async function activate(context: cocNvim.ExtensionContext): Promise<void>
     );
     context.subscriptions.push(
         cocNvim.languages.registerDocumentSymbolProvider([{ language: 'lpc' }], { provideDocumentSymbols })
+    );
+    context.subscriptions.push(
+        cocNvim.languages.registerHoverProvider([{ language: 'lpc' }], { provideHover })
     );
 }
