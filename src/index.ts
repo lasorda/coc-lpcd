@@ -105,6 +105,7 @@ interface FileSymbol {
     func: ESymbol[];
     childFileSymbol: { [key: string]: FileSymbol };
     comment: LineSymbol[];
+    filename: string;
 }
 
 function parse(filename: string, symbolInfo: string) {
@@ -117,7 +118,9 @@ function parse(filename: string, symbolInfo: string) {
         childFileSymbol: {},
         lineno: 0,
         comment: [],
+        filename: filename,
     };
+
     let localArgs: string[] = [];
     let currentLine = 0;
     const hasIncluded = new Set();
@@ -150,6 +153,7 @@ function parse(filename: string, symbolInfo: string) {
                     childFileSymbol: {},
                     lineno: lineSymbol.lineno,
                     comment: [],
+                    filename: lineSymbol.filename,
                 };
             }
             targetSymbol = fileSymbol.childFileSymbol[lineSymbol.filename];
@@ -360,11 +364,10 @@ function attachComment(fileSymbol: FileSymbol) {
 }
 
 const fileSymbolCache: { [key: string]: FileSymbol } = {};
-const fileSymbolCacheTime: { [key: string]: number } = {};
 
 function generateFileSymbol(filename: string): FileSymbol {
-    let fileSymbol: FileSymbol = { defined: [], include: [], variable: [], func: [], childFileSymbol: {}, lineno: 0, comment: [] };
-    if (filename in fileSymbolCacheTime && Date.now() / 1000 - fileSymbolCacheTime[filename] < 1) {
+    let fileSymbol: FileSymbol = { defined: [], include: [], variable: [], func: [], childFileSymbol: {}, lineno: 0, comment: [], filename: filename };
+    if (filename in fileSymbolCache && !isFileSymbolChange(fileSymbolCache[filename])) {
         return fileSymbolCache[filename];
     }
 
@@ -375,7 +378,7 @@ function generateFileSymbol(filename: string): FileSymbol {
     const res = loadSymbol(filename);
     fileSymbol = parse(filename, res);
     fileSymbolCache[filename] = fileSymbol;
-    fileSymbolCacheTime[filename] = Date.now() / 1000;
+    updateModifyTime(fileSymbol);
     return fileSymbol;
 }
 
@@ -511,8 +514,6 @@ function getLine(document: cocNvim.TextDocument, line: number): string {
     return document.getText({ start: { line: line - 1, character: 100000 }, end: { line: line, character: 100000 } });
 }
 
-const completionCache: { [key: string]: cocNvim.CompletionItem[] } = {};
-const completionCacheTime: { [key: string]: number } = {};
 
 function provideCompletionItems(document: cocNvim.TextDocument, position: cocNvim.Position): cocNvim.CompletionItem[] {
     const line = getLine(document, position.line);
@@ -601,14 +602,6 @@ function provideCompletionItems(document: cocNvim.TextDocument, position: cocNvi
     // call this file
     const filename = getFileRelativePath(document.uri);
 
-    if (
-        filename in completionCache &&
-        filename in completionCacheTime &&
-        Date.now() / 1000 - completionCacheTime[filename] < 5
-    ) {
-        return completionCache[filename];
-    }
-
     const res: cocNvim.CompletionItem[] = [];
     for (const local of getLocalVariable(filename, position.line)) {
         res.push({
@@ -656,8 +649,6 @@ function provideCompletionItems(document: cocNvim.TextDocument, position: cocNvi
             documentation: variable.documentation,
         });
     }
-    completionCache[filename] = res;
-    completionCacheTime[filename] = Date.now() / 1000;
     return res;
 }
 
@@ -750,19 +741,17 @@ function searchInLine(line: string, word: string): number {
 }
 
 const fileContextCache: { [key: string]: string[] } = {};
-const fileContextCacheTime: { [key: string]: number } = {};
 
 function getRangeofWordInFileLine(filename: string, line: number, word: string): cocNvim.Range {
     const res: cocNvim.Range = { start: { line: line, character: 0 }, end: { line: line, character: 0 } };
     let filelines: string[] = [];
 
     if (fs.existsSync(filename)) {
-        if (filename in fileContextCache && Date.now() / 1000 - fileContextCacheTime[filename] < 1) {
+        if (filename in fileContextCache && !isFileChange(filename)) {
             filelines = fileContextCache[filename];
         } else {
             filelines = fs.readFileSync(filename).toString().split('\n');
             fileContextCache[filename] = filelines;
-            fileContextCacheTime[filename] = Date.now() / 1000;
         }
     }
     if (line < filelines.length && filename.length > 0) {
@@ -1019,6 +1008,29 @@ function provideHover(
     if (hoverSymbol && hoverSymbol.documentation) {
         return { contents: hoverSymbol.documentation };
     }
+}
+
+const fileModifyTime: { [key: string]: number } = {};
+function isFileChange(filename: string): boolean {
+    const t = fs.statSync(path.resolve(projectFolder, filename)).mtime.getTime();
+
+    return fileModifyTime[filename] != t;
+}
+
+function isFileSymbolChange(fileSymbol: FileSymbol): boolean {
+    for (const file in fileSymbol.childFileSymbol) {
+        const childSymbol = fileSymbol.childFileSymbol[file];
+        if (isFileSymbolChange(childSymbol)) return true;
+    }
+    return isFileChange(fileSymbol.filename);
+}
+
+function updateModifyTime(fileSymbol: FileSymbol) {
+    for (const file in fileSymbol.childFileSymbol) {
+        const childSymbol = fileSymbol.childFileSymbol[file];
+        updateModifyTime(childSymbol);
+    }
+    fileModifyTime[fileSymbol.filename] = fs.statSync(path.resolve(projectFolder, fileSymbol.filename)).mtime.getTime();
 }
 
 export async function activate(context: cocNvim.ExtensionContext): Promise<void> {
