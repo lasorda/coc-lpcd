@@ -940,7 +940,7 @@ function provideDefinition(
 
     for (let index = 0; index < efuncObjects.length; index++) {
         const efuncFile = efuncObjects[index];
-        for (const func of getDefineFunction(efuncFile, -1, true)) {
+        for (const func of getDefineFunction(prettyFilename(efuncFile), -1, true)) {
             if (func.name == word) {
                 hoverSymbol = func;
                 return {
