@@ -378,7 +378,6 @@ function generateFileSymbol(filename: string): FileSymbol {
     fileSymbol = parse(filename, res);
     fileSymbolCache[filename] = fileSymbol;
     updateModifyTime(fileSymbol);
-    debug("generateFileSymbol", filename)
     return fileSymbol;
 }
 
