@@ -1017,7 +1017,8 @@ function updateModifyTime(fileSymbol: FileSymbol) {
 }
 
 function doUpdateFileSymbol(document: cocNvim.TextDocument) {
-    if (document.uri.endsWith(".c")) {generateFileSymbol(getFileRelativePath(document.uri))}
+    const filename = getFileRelativePath(document.uri);
+    if (document.uri.endsWith(".c") && fs.existsSync(filename)) {generateFileSymbol(filename)}
 }
 
 export async function activate(context: cocNvim.ExtensionContext): Promise<void> {
