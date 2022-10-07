@@ -19,5 +19,6 @@ if you use vscode, see [https://github.com/lasorda/lpcd](https://github.com/laso
     "coc-lpcd.complie": "/home/panzhihao/fluffos/build/src/symbol etc/config.test "
 }
 ```
+`coc-lpcd.complie` is the command to get the complie result
 
 see commit at `lpc auto completion supports in vim` [#820](https://github.com/fluffos/fluffos/pull/820)
